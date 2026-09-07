@@ -401,6 +401,27 @@
       </div>
     </main>
 
+    <main class="main" id="marketingNaverCombinedView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>네이버 SA · GFA · 파워링크 통합</h1>
+          <div class="subtitle" id="mktNaverCombinedSubtitle">불러오는 중...</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+          <select id="mktNaverCombinedMonthSelect" class="month-select"></select>
+        </div>
+      </div>
+
+      <div id="mktNaverCombinedEmpty" class="mkt-empty" style="display:none">
+        아직 네이버 브랜드의 캠페인 데이터가 없어요.
+      </div>
+
+      <div id="mktNaverCombinedContent">
+        <div id="mktNaverCombinedPanels"></div>
+      </div>
+    </main>
+
     <main class="main" id="productAdRatioView" style="display:none">
       <div class="topbar">
         <div>
@@ -488,6 +509,7 @@
   function switchView(view, brandChannel) {
     document.getElementById('marketingView').style.display = view === 'marketing' ? '' : 'none';
     document.getElementById('marketingBrandView').style.display = view === 'marketing-brand' ? '' : 'none';
+    document.getElementById('marketingNaverCombinedView').style.display = view === 'marketing-naver-combined' ? '' : 'none';
     document.getElementById('productAdRatioView').style.display = view === 'product-ad-ratio' ? '' : 'none';
 
     document.getElementById('navMarketing').classList.toggle('active', view === 'marketing');
@@ -495,11 +517,16 @@
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach(el => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
+    const naverCombinedNavEl = document.getElementById('navMarketingNaverCombined');
+    if (naverCombinedNavEl) naverCombinedNavEl.classList.toggle('active', view === 'marketing-naver-combined');
 
     if (view === 'marketing') loadMarketingData();
     if (view === 'marketing-brand') {
       currentMarketingBrand = brandChannel;
       Promise.all([loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData(), loadMarketingDailyData()]).then(() => renderMarketingBrandView());
+    }
+    if (view === 'marketing-naver-combined') {
+      Promise.all([loadMarketingData(), loadMarketingCampaignData()]).then(() => renderMarketingNaverCombinedView());
     }
     if (view === 'product-ad-ratio') initProductAdRatioView();
   }
@@ -1028,12 +1055,20 @@
 
     container.innerHTML = groups.map((g) => {
       const collapsed = localStorage.getItem('mktSubgroupCollapsed_' + g.media) === '1';
+      const combinedItem = g.media === '네이버'
+        ? `
+          <div class="nav-subitem" id="navMarketingNaverCombined" onclick="switchView('marketing-naver-combined')">
+            <span class="sub-dot"></span>SA·GFA·파워링크 통합
+          </div>
+        `
+        : '';
       return `
         <div class="nav-subgroup-label" onclick="toggleMarketingSubgroup('${escapeAttr(g.media)}')">
           ${escapeAttr(g.media)}
           <span class="nav-collapse-toggle mini${collapsed ? ' collapsed' : ''}" data-subgroup-toggle="${escapeAttr(g.media)}">▾</span>
         </div>
         <div class="nav-subgroup-items${collapsed ? ' collapsed' : ''}" data-subgroup="${escapeAttr(g.media)}">
+          ${combinedItem}
           ${g.items.map((item) => `
             <div class="nav-subitem" data-channel="${escapeAttr(item.channel)}" onclick="switchView('marketing-brand', '${escapeAttr(item.channel)}')">
               <span class="sub-dot"></span>${escapeAttr(item.brandName)}
@@ -1374,6 +1409,118 @@
       }
     };
     reader.readAsArrayBuffer(file);
+  }
+
+  // ==================== 네이버 SA/GFA/파워링크 통합보기 (여러 브랜드를 구분 기준으로 한 페이지에) ====================
+  function renderMarketingNaverCombinedView() {
+    const rows = allMarketingCampaignRows.filter((r) => r.channel.startsWith('네이버'));
+    const months = Array.from(new Set(rows.map((r) => r.month))).sort();
+
+    if (!months.length) {
+      document.getElementById('mktNaverCombinedSubtitle').textContent = '연동 대기 중';
+      document.getElementById('mktNaverCombinedEmpty').style.display = '';
+      document.getElementById('mktNaverCombinedContent').style.display = 'none';
+      return;
+    }
+    document.getElementById('mktNaverCombinedEmpty').style.display = 'none';
+    document.getElementById('mktNaverCombinedContent').style.display = '';
+
+    const monthSelect = document.getElementById('mktNaverCombinedMonthSelect');
+    const prevSelected = monthSelect.value;
+    monthSelect.innerHTML = months.map((m) => {
+      const [y, mm] = m.split('-');
+      return `<option value="${m}">${y}년 ${Number(mm)}월</option>`;
+    }).join('');
+    const monthToShow = months.includes(prevSelected) ? prevSelected : months[months.length - 1];
+    monthSelect.value = monthToShow;
+    monthSelect.onchange = () => renderMarketingNaverCombinedMonth(monthSelect.value);
+
+    renderMarketingNaverCombinedMonth(monthToShow);
+  }
+
+  function renderMarketingNaverCombinedMonth(monthStr) {
+    const monthRows = allMarketingCampaignRows.filter((r) => r.channel.startsWith('네이버') && r.month === monthStr);
+    const channels = Array.from(new Set(monthRows.map((r) => r.channel))).sort();
+
+    document.getElementById('mktNaverCombinedSubtitle').textContent =
+      monthStr + ' · 브랜드 ' + channels.length.toLocaleString('ko-KR') + '개';
+
+    document.getElementById('mktNaverCombinedPanels').innerHTML = AD_TYPES.map((type) => {
+      const typeRows = monthRows.filter((r) => r.ad_type === type);
+      const byChannel = channels.map((channel) => {
+        const cRows = typeRows.filter((r) => r.channel === channel);
+        return {
+          brandName: MARKETING_BRAND_TO_SALES_BRAND[channel] || channel,
+          spend: cRows.reduce((s, r) => s + Number(r.spend), 0),
+          impressions: cRows.reduce((s, r) => s + Number(r.impressions), 0),
+          clicks: cRows.reduce((s, r) => s + Number(r.clicks), 0),
+          conversions: cRows.reduce((s, r) => s + Number(r.conversions), 0),
+          revenue: cRows.reduce((s, r) => s + Number(r.revenue), 0)
+        };
+      }).filter((r) => r.spend > 0 || r.impressions > 0 || r.clicks > 0);
+
+      const totalSpend = byChannel.reduce((s, r) => s + r.spend, 0);
+      const totalImpressions = byChannel.reduce((s, r) => s + r.impressions, 0);
+      const totalClicks = byChannel.reduce((s, r) => s + r.clicks, 0);
+      const totalConversions = byChannel.reduce((s, r) => s + r.conversions, 0);
+      const totalRevenue = byChannel.reduce((s, r) => s + r.revenue, 0);
+      const totalCtr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0;
+      const totalCpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
+      const totalCpa = totalConversions > 0 ? (totalSpend / totalConversions) : 0;
+      const totalRoas = totalSpend > 0 ? (totalRevenue / totalSpend * 100) : 0;
+
+      const bodyRows = byChannel.map((r) => {
+        const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100) : 0;
+        const cpc = r.clicks > 0 ? (r.spend / r.clicks) : 0;
+        const cpa = r.conversions > 0 ? (r.spend / r.conversions) : 0;
+        const roas = r.spend > 0 ? (r.revenue / r.spend * 100) : 0;
+        return `
+          <tr>
+            <td>${escapeAttr(r.brandName)}</td>
+            <td class="num">${won(Math.round(r.spend))}</td>
+            <td class="num">${r.impressions.toLocaleString('ko-KR')}</td>
+            <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
+            <td class="num">${ctr.toFixed(2)}%</td>
+            <td class="num">${won(Math.round(cpc))}</td>
+            <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
+            <td class="num">${won(Math.round(cpa))}</td>
+            <td class="num">${roas.toFixed(0)}%</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="ad-type-badge ${type}">${type}</span></h2>
+            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · 브랜드별</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>브랜드</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+              </thead>
+              <tbody>
+                ${bodyRows || `<tr><td colspan="9" class="mkt-empty-row">${escapeAttr(type)} 데이터가 아직 없어요.</td></tr>`}
+                ${byChannel.length ? `
+                  <tr class="channel-total-row">
+                    <td>합계</td>
+                    <td class="num">${won(Math.round(totalSpend))}</td>
+                    <td class="num">${totalImpressions.toLocaleString('ko-KR')}</td>
+                    <td class="num">${totalClicks.toLocaleString('ko-KR')}</td>
+                    <td class="num">${totalCtr.toFixed(2)}%</td>
+                    <td class="num">${won(Math.round(totalCpc))}</td>
+                    <td class="num">${totalConversions.toLocaleString('ko-KR')}</td>
+                    <td class="num">${won(Math.round(totalCpa))}</td>
+                    <td class="num">${totalRoas.toFixed(0)}%</td>
+                  </tr>
+                ` : ''}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      `;
+    }).join('');
   }
 
   // ==================== 상품별 광고비ROI ====================
