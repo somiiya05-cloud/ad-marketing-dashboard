@@ -301,7 +301,26 @@
       </div>
 
       <div id="mktBrandContent">
-        <section class="kpi-row" id="mktBrandCards"></section>
+        <section class="panel" id="mktAdTypePanel" style="display:none">
+          <div class="panel-head">
+            <h2>네이버 광고 구분 (SA · GFA · 파워링크)</h2>
+            <span class="panel-note">SA는 검색광고 자동연동, GFA·파워링크는 파일 업로드 기준</span>
+          </div>
+          <div class="ad-type-row" id="mktAdTypeCards"></div>
+          <div class="ad-upload-row">
+            <select id="mktAdUploadType" class="vendor-select">
+              <option value="SA">SA</option>
+              <option value="GFA">GFA</option>
+              <option value="파워링크">파워링크</option>
+            </select>
+            <input type="file" id="mktAdUploadFile" accept=".xlsx,.xls,.csv">
+            <button type="button" class="btn-primary" onclick="uploadMarketingAdFile()">업로드</button>
+            <span class="ad-upload-status" id="mktAdUploadStatus"></span>
+          </div>
+          <div class="ad-upload-row" style="margin-top:2px;">
+            <span class="panel-note">엑셀/CSV 컬럼 예시: 캠페인(명), 날짜, 노출(수), 클릭(수), 비용/광고비, 전환(수), 전환매출/매출 — 컬럼명이 비슷하면 자동 인식됩니다. 선택한 '구분'·현재 보고 있는 월 기준으로 캠페인별 합계를 저장합니다.</span>
+          </div>
+        </section>
 
         <section class="panel">
           <div class="panel-head">
@@ -330,27 +349,6 @@
               </thead>
               <tbody id="mktBrandDailyTable"></tbody>
             </table>
-          </div>
-        </section>
-
-        <section class="panel" id="mktAdTypePanel" style="display:none">
-          <div class="panel-head">
-            <h2>네이버 광고 구분 (SA · GFA · 파워링크)</h2>
-            <span class="panel-note">SA는 검색광고 자동연동, GFA·파워링크는 파일 업로드 기준</span>
-          </div>
-          <div class="ad-type-row" id="mktAdTypeCards"></div>
-          <div class="ad-upload-row">
-            <select id="mktAdUploadType" class="vendor-select">
-              <option value="SA">SA</option>
-              <option value="GFA">GFA</option>
-              <option value="파워링크">파워링크</option>
-            </select>
-            <input type="file" id="mktAdUploadFile" accept=".xlsx,.xls,.csv">
-            <button type="button" class="btn-primary" onclick="uploadMarketingAdFile()">업로드</button>
-            <span class="ad-upload-status" id="mktAdUploadStatus"></span>
-          </div>
-          <div class="ad-upload-row" style="margin-top:2px;">
-            <span class="panel-note">엑셀/CSV 컬럼 예시: 캠페인(명), 날짜, 노출(수), 클릭(수), 비용/광고비, 전환(수), 전환매출/매출 — 컬럼명이 비슷하면 자동 인식됩니다. 선택한 '구분'·현재 보고 있는 월 기준으로 캠페인별 합계를 저장합니다.</span>
           </div>
         </section>
 
@@ -1098,47 +1096,9 @@
     const totalRevenue = rows.reduce((s, r) => s + Number(r.revenue), 0);
 
     const roas = totalSpend > 0 ? (totalRevenue / totalSpend * 100) : 0;
-    const cvr = totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0;
-    const budgetPct = totalSpend / MARKETING_MONTHLY_BUDGET * 100;
-    const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
-
-    const salesBrandName = MARKETING_BRAND_TO_SALES_BRAND[channel] || channel;
-    const brandRevenue = getBrandMonthlyRevenue(salesBrandName, monthStr);
-    const adSpendRatio = brandRevenue > 0 ? (totalSpend / brandRevenue * 100) : 0;
-
-    const brandMonthsSorted = Array.from(new Set(brandRows.map((r) => r.month))).sort();
-    const curMonthIdx = brandMonthsSorted.indexOf(monthStr);
-    const prevBrandMonth = curMonthIdx > 0 ? brandMonthsSorted[curMonthIdx - 1] : null;
-    const prevBrandRevenue = prevBrandMonth ? getBrandMonthlyRevenue(salesBrandName, prevBrandMonth) : null;
-    const revenueChangePct = (prevBrandRevenue !== null && prevBrandRevenue > 0)
-      ? ((brandRevenue - prevBrandRevenue) / prevBrandRevenue * 100)
-      : null;
-    const revenueCardSub = revenueChangePct !== null
-      ? `전월 대비 <span class="${revenueChangePct >= 0 ? 'trend-up' : 'trend-down'}">${revenueChangePct >= 0 ? '+' : ''}${revenueChangePct.toFixed(1)}%</span>`
-      : `광고비 ${won(Math.round(totalSpend))} 사용`;
 
     document.getElementById('mktBrandSubtitle').textContent =
       (monthStr ? monthStr + ' · ' : '') + '연동됨 · 거래 ' + rows.length.toLocaleString('ko-KR') + '건';
-
-    document.getElementById('mktBrandCards').innerHTML = `
-      <div class="kpi-card">
-        <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}광고비 (MTD)</div>
-        <div class="kpi-value mkt-value">${won(Math.round(totalSpend))}</div>
-        <div class="kpi-sub">예산 ${won(MARKETING_MONTHLY_BUDGET)} 대비 <span class="pct-red">${budgetPct.toFixed(1)}%</span></div>
-        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, budgetPct).toFixed(1)}%"></div></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}광고매출</div>
-        <div class="kpi-value mkt-value">${won(Math.round(brandRevenue))}</div>
-        <div class="kpi-sub">${revenueCardSub}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">광고비중</div>
-        <div class="kpi-value mkt-value">${adSpendRatio.toFixed(1)}%</div>
-        <div class="kpi-sub">매출 ${won(Math.round(brandRevenue))} 중 광고비 비중</div>
-        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatio).toFixed(1)}%"></div></div>
-      </div>
-    `;
 
     const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0;
     const cpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
