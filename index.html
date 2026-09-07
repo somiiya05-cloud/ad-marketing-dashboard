@@ -441,8 +441,8 @@
       <div id="mktNaverSaContent">
         <section class="panel">
           <div class="panel-head">
-            <h2>네이버 광고 구분 (SA · GFA · 파워링크)</h2>
-            <span class="panel-note">전 브랜드 합산 · SA는 검색광고 자동연동, GFA·파워링크는 파일 업로드 기준</span>
+            <h2>네이버 SA</h2>
+            <span class="panel-note">전 브랜드 합산 · 검색광고 자동연동</span>
           </div>
           <div class="ad-type-row" id="mktNaverSaAdTypeCards"></div>
         </section>
@@ -482,11 +482,10 @@
             <h2>캠페인별 성과</h2>
             <span class="panel-note">광고비 단위: 원 · 이 달 누적 · 전 브랜드</span>
           </div>
-          <div class="filter-group" id="mktNaverSaAdTypeFilter" style="margin-bottom: 10px;"></div>
           <div class="scroll-box">
             <table>
               <thead>
-                <tr><th>구분</th><th>브랜드</th><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+                <tr><th>브랜드</th><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
               </thead>
               <tbody id="mktNaverSaCampaignTable"></tbody>
             </table>
@@ -1757,9 +1756,6 @@
   // 기존에는 네이버 미니멀룸/빠이러스/잠비에 등이 브랜드별로 따로 페이지가 있었는데,
   // 여기서는 그 페이지들의 상세 지표·일별·캠페인·키워드·낭비키워드를 한 페이지에
   // 브랜드 열을 추가해서 합쳐서 보여준다.
-  let mktNaverSaAdTypeFilterValue = '전체';
-  let mktNaverSaCampaignRowsCache = [];
-
   function naverSaBrandName(channel) {
     return MARKETING_BRAND_TO_SALES_BRAND[channel] || String(channel).replace(/^네이버\s*/, '');
   }
@@ -1876,24 +1872,20 @@
         }).join('')
       : '<tr><td colspan="10" class="mkt-empty-row">이 달에 일별 데이터가 아직 없어요.</td></tr>';
 
-    // ---- 광고 구분 카드 (전 브랜드 합산) ----
+    // ---- SA 카드 (전 브랜드 합산 · GFA·파워링크는 각자 페이지에서 다룬다) ----
     const campaignRows = allMarketingCampaignRows
-      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr)
-      .map((r) => ({ ...r, ad_type: r.ad_type || 'SA' }));
+      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (r.ad_type || 'SA') === 'SA');
 
-    document.getElementById('mktNaverSaAdTypeCards').innerHTML = AD_TYPES.map((type) => {
-      const tRows = campaignRows.filter((r) => r.ad_type === type);
-      const spend = tRows.reduce((s, r) => s + Number(r.spend), 0);
-      const revenue = tRows.reduce((s, r) => s + Number(r.revenue), 0);
-      const roas = spend > 0 ? (revenue / spend * 100) : 0;
-      return `
-        <div class="ad-type-card">
-          <div class="ad-type-card-label"><span class="ad-type-badge ${type}">${type}</span></div>
-          <div class="ad-type-value">${won(Math.round(spend))}</div>
-          <div class="ad-type-sub">${tRows.length ? `매출 ${won(Math.round(revenue))} · ROAS ${roas.toFixed(0)}%` : '데이터 없음'}</div>
-        </div>
-      `;
-    }).join('');
+    const saSpend = campaignRows.reduce((s, r) => s + Number(r.spend), 0);
+    const saRevenue = campaignRows.reduce((s, r) => s + Number(r.revenue), 0);
+    const saRoas = saSpend > 0 ? (saRevenue / saSpend * 100) : 0;
+    document.getElementById('mktNaverSaAdTypeCards').innerHTML = `
+      <div class="ad-type-card">
+        <div class="ad-type-card-label"><span class="ad-type-badge SA">SA</span></div>
+        <div class="ad-type-value">${won(Math.round(saSpend))}</div>
+        <div class="ad-type-sub">${campaignRows.length ? `매출 ${won(Math.round(saRevenue))} · ROAS ${saRoas.toFixed(0)}%` : '데이터 없음'}</div>
+      </div>
+    `;
 
     renderMarketingNaverSaCampaignTable(campaignRows.slice().sort((a, b) => Number(b.spend) - Number(a.spend)));
 
@@ -1954,20 +1946,8 @@
   }
 
   function renderMarketingNaverSaCampaignTable(campaignRows) {
-    mktNaverSaCampaignRowsCache = campaignRows;
-    const filterEl = document.getElementById('mktNaverSaAdTypeFilter');
-    const options = ['전체', ...AD_TYPES];
-    filterEl.innerHTML = options.map((opt) => `
-      <button type="button" class="ad-type-filter-btn${opt === mktNaverSaAdTypeFilterValue ? ' active' : ''}"
-        onclick="setMarketingNaverSaAdTypeFilter('${escapeAttr(opt)}')">${escapeAttr(opt)}</button>
-    `).join('');
-
-    const rows = mktNaverSaAdTypeFilterValue !== '전체'
-      ? campaignRows.filter((r) => r.ad_type === mktNaverSaAdTypeFilterValue)
-      : campaignRows;
-
-    document.getElementById('mktNaverSaCampaignTable').innerHTML = rows.length
-      ? rows.map((r) => {
+    document.getElementById('mktNaverSaCampaignTable').innerHTML = campaignRows.length
+      ? campaignRows.map((r) => {
           const spend = Number(r.spend);
           const impressions = Number(r.impressions);
           const clicks = Number(r.clicks);
@@ -1979,7 +1959,6 @@
           const rRoas = spend > 0 ? (revenue / spend * 100) : 0;
           return `
             <tr>
-              <td><span class="ad-type-badge ${escapeAttr(r.ad_type)}">${escapeAttr(r.ad_type)}</span></td>
               <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
               <td>${escapeAttr(r.campaign)}</td>
               <td class="num">${won(spend)}</td>
@@ -1993,12 +1972,7 @@
             </tr>
           `;
         }).join('')
-      : '<tr><td colspan="11" class="mkt-empty-row">이 달·구분에 캠페인별 데이터가 아직 없어요.</td></tr>';
-  }
-
-  function setMarketingNaverSaAdTypeFilter(value) {
-    mktNaverSaAdTypeFilterValue = value;
-    renderMarketingNaverSaCampaignTable(mktNaverSaCampaignRowsCache);
+      : '<tr><td colspan="10" class="mkt-empty-row">이 달에 캠페인별 데이터가 아직 없어요.</td></tr>';
   }
 
   // ==================== 네이버GFA / 네이버파워링크 (전 브랜드 통합, 캠페인 업로드 데이터 기준) ====================
