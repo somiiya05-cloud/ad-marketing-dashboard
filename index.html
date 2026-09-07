@@ -445,20 +445,6 @@
             <span class="panel-note">전 브랜드 합산 · SA는 검색광고 자동연동, GFA·파워링크는 파일 업로드 기준</span>
           </div>
           <div class="ad-type-row" id="mktNaverSaAdTypeCards"></div>
-          <div class="ad-upload-row">
-            <select id="mktNaverSaUploadBrandSelect" class="vendor-select"></select>
-            <select id="mktNaverSaUploadType" class="vendor-select">
-              <option value="SA">SA</option>
-              <option value="GFA">GFA</option>
-              <option value="파워링크">파워링크</option>
-            </select>
-            <input type="file" id="mktNaverSaUploadFile" accept=".xlsx,.xls,.csv">
-            <button type="button" class="btn-primary" onclick="uploadMarketingNaverSaAdFile()">업로드</button>
-            <span class="ad-upload-status" id="mktNaverSaUploadStatus"></span>
-          </div>
-          <div class="ad-upload-row" style="margin-top:2px;">
-            <span class="panel-note">엑셀/CSV 컬럼 예시: 캠페인(명), 날짜, 노출(수), 클릭(수), 비용/광고비, 전환(수), 전환매출/매출 — 컬럼명이 비슷하면 자동 인식됩니다. 브랜드·구분·현재 보고 있는 월 기준으로 캠페인별 합계를 저장합니다.</span>
-          </div>
         </section>
 
         <section class="panel">
@@ -552,26 +538,10 @@
       </div>
 
       <div id="mktNaverGfaEmpty" class="mkt-empty" style="display:none">
-        아직 네이버 브랜드의 GFA 데이터가 없어요. 아래에서 엑셀/CSV를 업로드하면 채워집니다.
+        아직 네이버 브랜드의 GFA 데이터가 없어요.
       </div>
 
       <div id="mktNaverGfaContent">
-        <section class="panel">
-          <div class="panel-head">
-            <h2>GFA 업로드</h2>
-            <span class="panel-note">GFA는 파일 업로드 기준 · 브랜드·현재 보고 있는 월 기준으로 캠페인별 합계를 저장합니다</span>
-          </div>
-          <div class="ad-upload-row">
-            <select id="mktNaverGfaUploadBrandSelect" class="vendor-select"></select>
-            <input type="file" id="mktNaverGfaUploadFile" accept=".xlsx,.xls,.csv">
-            <button type="button" class="btn-primary" onclick="uploadMarketingNaverAdTypeFile('GFA')">업로드</button>
-            <span class="ad-upload-status" id="mktNaverGfaUploadStatus"></span>
-          </div>
-          <div class="ad-upload-row" style="margin-top:2px;">
-            <span class="panel-note">엑셀/CSV 컬럼 예시: 캠페인(명), 노출(수), 클릭(수), 비용/광고비, 전환(수), 전환매출/매출 — 컬럼명이 비슷하면 자동 인식됩니다.</span>
-          </div>
-        </section>
-
         <section class="panel">
           <div class="panel-head">
             <h2>브랜드별 상세 지표</h2>
@@ -617,26 +587,10 @@
       </div>
 
       <div id="mktNaverPlEmpty" class="mkt-empty" style="display:none">
-        아직 네이버 브랜드의 파워링크 데이터가 없어요. 아래에서 엑셀/CSV를 업로드하면 채워집니다.
+        아직 네이버 브랜드의 파워링크 데이터가 없어요.
       </div>
 
       <div id="mktNaverPlContent">
-        <section class="panel">
-          <div class="panel-head">
-            <h2>파워링크 업로드</h2>
-            <span class="panel-note">파워링크는 파일 업로드 기준 · 브랜드·현재 보고 있는 월 기준으로 캠페인별 합계를 저장합니다</span>
-          </div>
-          <div class="ad-upload-row">
-            <select id="mktNaverPlUploadBrandSelect" class="vendor-select"></select>
-            <input type="file" id="mktNaverPlUploadFile" accept=".xlsx,.xls,.csv">
-            <button type="button" class="btn-primary" onclick="uploadMarketingNaverAdTypeFile('파워링크')">업로드</button>
-            <span class="ad-upload-status" id="mktNaverPlUploadStatus"></span>
-          </div>
-          <div class="ad-upload-row" style="margin-top:2px;">
-            <span class="panel-note">엑셀/CSV 컬럼 예시: 캠페인(명), 노출(수), 클릭(수), 비용/광고비, 전환(수), 전환매출/매출 — 컬럼명이 비슷하면 자동 인식됩니다.</span>
-          </div>
-        </section>
-
         <section class="panel">
           <div class="panel-head">
             <h2>브랜드별 상세 지표</h2>
@@ -1811,12 +1765,6 @@
   }
 
   function renderMarketingNaverSaView() {
-    const uploadBrandSelect = document.getElementById('mktNaverSaUploadBrandSelect');
-    uploadBrandSelect.innerHTML = MARKETING_BRANDS
-      .filter((b) => b.channel.startsWith('네이버'))
-      .map((b) => `<option value="${escapeAttr(b.channel)}">${escapeAttr(naverSaBrandName(b.channel))}</option>`)
-      .join('');
-
     const rows = allMarketingRows.filter((r) => r.channel && r.channel.startsWith('네이버'));
     const months = Array.from(new Set(rows.map((r) => r.month))).sort();
 
@@ -2053,72 +2001,6 @@
     renderMarketingNaverSaCampaignTable(mktNaverSaCampaignRowsCache);
   }
 
-  function uploadMarketingNaverSaAdFile() {
-    const channel = document.getElementById('mktNaverSaUploadBrandSelect').value;
-    const monthStr = document.getElementById('mktNaverSaMonthSelect').value;
-    const adType = document.getElementById('mktNaverSaUploadType').value;
-    const input = document.getElementById('mktNaverSaUploadFile');
-    const status = document.getElementById('mktNaverSaUploadStatus');
-    const file = input.files[0];
-    if (!file) { status.textContent = '파일을 먼저 선택하세요.'; return; }
-    if (!monthStr) { status.textContent = '먼저 상단에서 반영할 월을 선택하세요.'; return; }
-
-    status.textContent = '읽는 중...';
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        if (grid.length < 2) { status.textContent = '데이터가 없는 파일입니다.'; return; }
-
-        const headerRow = grid[0];
-        const idx = {
-          campaign: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.campaign),
-          impressions: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.impressions),
-          clicks: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.clicks),
-          spend: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.spend),
-          conversions: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.conversions),
-          revenue: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.revenue)
-        };
-        if (idx.campaign === -1 || idx.spend === -1) {
-          status.textContent = '"캠페인" · "비용/광고비" 컬럼을 찾지 못했습니다. 컬럼명을 확인해주세요.';
-          return;
-        }
-
-        const byCampaign = new Map();
-        for (const row of grid.slice(1)) {
-          const campaign = String(row[idx.campaign] || '').trim();
-          if (!campaign) continue;
-          const cur = byCampaign.get(campaign) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
-          cur.spend += Number(row[idx.spend]) || 0;
-          if (idx.impressions !== -1) cur.impressions += Number(row[idx.impressions]) || 0;
-          if (idx.clicks !== -1) cur.clicks += Number(row[idx.clicks]) || 0;
-          if (idx.conversions !== -1) cur.conversions += Number(row[idx.conversions]) || 0;
-          if (idx.revenue !== -1) cur.revenue += Number(row[idx.revenue]) || 0;
-          byCampaign.set(campaign, cur);
-        }
-
-        const rows = Array.from(byCampaign.entries()).map(([campaign, totals]) => ({
-          month: monthStr, channel, ad_type: adType, campaign, ...totals
-        }));
-        if (rows.length === 0) { status.textContent = '업로드할 캠페인이 없습니다.'; return; }
-
-        const { error } = await client
-          .from('ad_performance_campaigns')
-          .upsert(rows, { onConflict: 'month,channel,ad_type,campaign' });
-        if (error) { status.textContent = '업로드 실패: ' + error.message; return; }
-
-        status.textContent = `${rows.length.toLocaleString('ko-KR')}개 캠페인(${adType})을 저장했습니다.`;
-        input.value = '';
-        loadMarketingCampaignData().then(() => renderMarketingNaverSaMonth(monthStr));
-      } catch (err) {
-        status.textContent = '파일을 읽는 중 오류가 발생했습니다: ' + err.message;
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
   // ==================== 네이버GFA / 네이버파워링크 (전 브랜드 통합, 캠페인 업로드 데이터 기준) ====================
   // GFA·파워링크는 ad_performance/ad_performance_daily(자동 SA 연동용)에는 데이터가 없고
   // ad_performance_campaigns(월 단위 업로드)에만 있어서, 일별 성과·키워드 성과는 여기서 다루지 않는다.
@@ -2129,12 +2011,6 @@
 
   function renderMarketingNaverAdTypeView(adType) {
     const p = NAVER_AD_TYPE_PAGES[adType].idPrefix;
-    const uploadBrandSelect = document.getElementById(p + 'UploadBrandSelect');
-    uploadBrandSelect.innerHTML = MARKETING_BRANDS
-      .filter((b) => b.channel.startsWith('네이버'))
-      .map((b) => `<option value="${escapeAttr(b.channel)}">${escapeAttr(naverSaBrandName(b.channel))}</option>`)
-      .join('');
-
     const rows = allMarketingCampaignRows.filter((r) => r.channel.startsWith('네이버') && (r.ad_type || 'SA') === adType);
     const months = Array.from(new Set(rows.map((r) => r.month))).sort();
 
@@ -2240,72 +2116,6 @@
           `;
         }).join('')
       : '<tr><td colspan="10" class="mkt-empty-row">이 달·전 브랜드에 캠페인별 데이터가 아직 없어요.</td></tr>';
-  }
-
-  function uploadMarketingNaverAdTypeFile(adType) {
-    const p = NAVER_AD_TYPE_PAGES[adType].idPrefix;
-    const channel = document.getElementById(p + 'UploadBrandSelect').value;
-    const monthStr = document.getElementById(p + 'MonthSelect').value;
-    const input = document.getElementById(p + 'UploadFile');
-    const status = document.getElementById(p + 'UploadStatus');
-    const file = input.files[0];
-    if (!file) { status.textContent = '파일을 먼저 선택하세요.'; return; }
-    if (!monthStr) { status.textContent = '먼저 상단에서 반영할 월을 선택하세요.'; return; }
-
-    status.textContent = '읽는 중...';
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        if (grid.length < 2) { status.textContent = '데이터가 없는 파일입니다.'; return; }
-
-        const headerRow = grid[0];
-        const idx = {
-          campaign: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.campaign),
-          impressions: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.impressions),
-          clicks: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.clicks),
-          spend: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.spend),
-          conversions: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.conversions),
-          revenue: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.revenue)
-        };
-        if (idx.campaign === -1 || idx.spend === -1) {
-          status.textContent = '"캠페인" · "비용/광고비" 컬럼을 찾지 못했습니다. 컬럼명을 확인해주세요.';
-          return;
-        }
-
-        const byCampaign = new Map();
-        for (const row of grid.slice(1)) {
-          const campaign = String(row[idx.campaign] || '').trim();
-          if (!campaign) continue;
-          const cur = byCampaign.get(campaign) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
-          cur.spend += Number(row[idx.spend]) || 0;
-          if (idx.impressions !== -1) cur.impressions += Number(row[idx.impressions]) || 0;
-          if (idx.clicks !== -1) cur.clicks += Number(row[idx.clicks]) || 0;
-          if (idx.conversions !== -1) cur.conversions += Number(row[idx.conversions]) || 0;
-          if (idx.revenue !== -1) cur.revenue += Number(row[idx.revenue]) || 0;
-          byCampaign.set(campaign, cur);
-        }
-
-        const rows = Array.from(byCampaign.entries()).map(([campaign, totals]) => ({
-          month: monthStr, channel, ad_type: adType, campaign, ...totals
-        }));
-        if (rows.length === 0) { status.textContent = '업로드할 캠페인이 없습니다.'; return; }
-
-        const { error } = await client
-          .from('ad_performance_campaigns')
-          .upsert(rows, { onConflict: 'month,channel,ad_type,campaign' });
-        if (error) { status.textContent = '업로드 실패: ' + error.message; return; }
-
-        status.textContent = `${rows.length.toLocaleString('ko-KR')}개 캠페인을 저장했습니다.`;
-        input.value = '';
-        loadMarketingCampaignData().then(() => renderMarketingNaverAdTypeMonth(adType, monthStr));
-      } catch (err) {
-        status.textContent = '파일을 읽는 중 오류가 발생했습니다: ' + err.message;
-      }
-    };
-    reader.readAsArrayBuffer(file);
   }
 
   // ==================== 상품별 광고비ROI ====================
