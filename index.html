@@ -422,6 +422,123 @@
       </div>
     </main>
 
+    <main class="main" id="marketingNaverSaView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>네이버SA</h1>
+          <div class="subtitle" id="mktNaverSaSubtitle">불러오는 중...</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+          <select id="mktNaverSaMonthSelect" class="month-select"></select>
+        </div>
+      </div>
+
+      <div id="mktNaverSaEmpty" class="mkt-empty" style="display:none">
+        아직 네이버 브랜드의 광고 데이터가 없어요.
+      </div>
+
+      <div id="mktNaverSaContent">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>네이버 광고 구분 (SA · GFA · 파워링크)</h2>
+            <span class="panel-note">전 브랜드 합산 · SA는 검색광고 자동연동, GFA·파워링크는 파일 업로드 기준</span>
+          </div>
+          <div class="ad-type-row" id="mktNaverSaAdTypeCards"></div>
+          <div class="ad-upload-row">
+            <select id="mktNaverSaUploadBrandSelect" class="vendor-select"></select>
+            <select id="mktNaverSaUploadType" class="vendor-select">
+              <option value="SA">SA</option>
+              <option value="GFA">GFA</option>
+              <option value="파워링크">파워링크</option>
+            </select>
+            <input type="file" id="mktNaverSaUploadFile" accept=".xlsx,.xls,.csv">
+            <button type="button" class="btn-primary" onclick="uploadMarketingNaverSaAdFile()">업로드</button>
+            <span class="ad-upload-status" id="mktNaverSaUploadStatus"></span>
+          </div>
+          <div class="ad-upload-row" style="margin-top:2px;">
+            <span class="panel-note">엑셀/CSV 컬럼 예시: 캠페인(명), 날짜, 노출(수), 클릭(수), 비용/광고비, 전환(수), 전환매출/매출 — 컬럼명이 비슷하면 자동 인식됩니다. 브랜드·구분·현재 보고 있는 월 기준으로 캠페인별 합계를 저장합니다.</span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>브랜드별 상세 지표</h2>
+            <span class="panel-note">광고비 단위: 원 · 이 달 누적</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>브랜드</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+              </thead>
+              <tbody id="mktNaverSaChannelTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>일별 성과</h2>
+            <span class="panel-note">광고비 단위: 원 · 최근 날짜 순 · 브랜드별</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>날짜</th><th>브랜드</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">전환매출</th><th class="num">ROAS</th></tr>
+              </thead>
+              <tbody id="mktNaverSaDailyTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>캠페인별 성과</h2>
+            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · 전 브랜드</span>
+          </div>
+          <div class="filter-group" id="mktNaverSaAdTypeFilter" style="margin-bottom: 10px;"></div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>구분</th><th>브랜드</th><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+              </thead>
+              <tbody id="mktNaverSaCampaignTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>키워드별 성과</h2>
+            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · 광고비 많은 순 · 전 브랜드</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>브랜드</th><th>키워드</th><th>캠페인</th><th>광고그룹</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th></tr>
+              </thead>
+              <tbody id="mktNaverSaKeywordTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>낭비 키워드</h2>
+            <span class="panel-note">클릭 10건 이상인데 전환이 0건인 키워드 · 광고비 많은 순 · 전 브랜드</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>브랜드</th><th>키워드</th><th>캠페인</th><th>광고그룹</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th></tr>
+              </thead>
+              <tbody id="mktNaverSaWasteKeywordTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+
     <main class="main" id="productAdRatioView" style="display:none">
       <div class="topbar">
         <div>
@@ -510,6 +627,7 @@
     document.getElementById('marketingView').style.display = view === 'marketing' ? '' : 'none';
     document.getElementById('marketingBrandView').style.display = view === 'marketing-brand' ? '' : 'none';
     document.getElementById('marketingNaverCombinedView').style.display = view === 'marketing-naver-combined' ? '' : 'none';
+    document.getElementById('marketingNaverSaView').style.display = view === 'marketing-naver-sa' ? '' : 'none';
     document.getElementById('productAdRatioView').style.display = view === 'product-ad-ratio' ? '' : 'none';
 
     document.getElementById('navMarketing').classList.toggle('active', view === 'marketing');
@@ -519,6 +637,8 @@
     });
     const naverCombinedNavEl = document.getElementById('navMarketingNaverCombined');
     if (naverCombinedNavEl) naverCombinedNavEl.classList.toggle('active', view === 'marketing-naver-combined');
+    const naverSaNavEl = document.getElementById('navMarketingNaverSa');
+    if (naverSaNavEl) naverSaNavEl.classList.toggle('active', view === 'marketing-naver-sa');
 
     if (view === 'marketing') loadMarketingData();
     if (view === 'marketing-brand') {
@@ -527,6 +647,9 @@
     }
     if (view === 'marketing-naver-combined') {
       Promise.all([loadMarketingData(), loadMarketingCampaignData()]).then(() => renderMarketingNaverCombinedView());
+    }
+    if (view === 'marketing-naver-sa') {
+      Promise.all([loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData(), loadMarketingDailyData()]).then(() => renderMarketingNaverSaView());
     }
     if (view === 'product-ad-ratio') initProductAdRatioView();
   }
@@ -1060,8 +1183,17 @@
           <div class="nav-subitem" id="navMarketingNaverCombined" onclick="switchView('marketing-naver-combined')">
             <span class="sub-dot"></span>SA·GFA·파워링크 통합
           </div>
+          <div class="nav-subitem" id="navMarketingNaverSa" onclick="switchView('marketing-naver-sa')">
+            <span class="sub-dot"></span>네이버SA
+          </div>
         `
         : '';
+      // 네이버 브랜드별 개별 SA 페이지는 네이버SA 통합 페이지로 합쳐서, 여기서는 메타만 브랜드별로 나열한다.
+      const brandItems = g.media === '네이버' ? '' : g.items.map((item) => `
+        <div class="nav-subitem" data-channel="${escapeAttr(item.channel)}" onclick="switchView('marketing-brand', '${escapeAttr(item.channel)}')">
+          <span class="sub-dot"></span>${escapeAttr(item.brandName)}
+        </div>
+      `).join('');
       return `
         <div class="nav-subgroup-label" onclick="toggleMarketingSubgroup('${escapeAttr(g.media)}')">
           ${escapeAttr(g.media)}
@@ -1069,11 +1201,7 @@
         </div>
         <div class="nav-subgroup-items${collapsed ? ' collapsed' : ''}" data-subgroup="${escapeAttr(g.media)}">
           ${combinedItem}
-          ${g.items.map((item) => `
-            <div class="nav-subitem" data-channel="${escapeAttr(item.channel)}" onclick="switchView('marketing-brand', '${escapeAttr(item.channel)}')">
-              <span class="sub-dot"></span>${escapeAttr(item.brandName)}
-            </div>
-          `).join('')}
+          ${brandItems}
         </div>
       `;
     }).join('');
@@ -1521,6 +1649,326 @@
         </section>
       `;
     }).join('');
+  }
+
+  // ==================== 네이버SA (브랜드별 개별 SA 페이지 통합) ====================
+  // 기존에는 네이버 미니멀룸/빠이러스/잠비에 등이 브랜드별로 따로 페이지가 있었는데,
+  // 여기서는 그 페이지들의 상세 지표·일별·캠페인·키워드·낭비키워드를 한 페이지에
+  // 브랜드 열을 추가해서 합쳐서 보여준다.
+  let mktNaverSaAdTypeFilterValue = '전체';
+  let mktNaverSaCampaignRowsCache = [];
+
+  function naverSaBrandName(channel) {
+    return MARKETING_BRAND_TO_SALES_BRAND[channel] || String(channel).replace(/^네이버\s*/, '');
+  }
+
+  function renderMarketingNaverSaView() {
+    const uploadBrandSelect = document.getElementById('mktNaverSaUploadBrandSelect');
+    uploadBrandSelect.innerHTML = MARKETING_BRANDS
+      .filter((b) => b.channel.startsWith('네이버'))
+      .map((b) => `<option value="${escapeAttr(b.channel)}">${escapeAttr(naverSaBrandName(b.channel))}</option>`)
+      .join('');
+
+    const rows = allMarketingRows.filter((r) => r.channel && r.channel.startsWith('네이버'));
+    const months = Array.from(new Set(rows.map((r) => r.month))).sort();
+
+    if (!months.length) {
+      document.getElementById('mktNaverSaSubtitle').textContent = '연동 대기 중';
+      document.getElementById('mktNaverSaEmpty').style.display = '';
+      document.getElementById('mktNaverSaContent').style.display = 'none';
+      return;
+    }
+    document.getElementById('mktNaverSaEmpty').style.display = 'none';
+    document.getElementById('mktNaverSaContent').style.display = '';
+
+    const monthSelect = document.getElementById('mktNaverSaMonthSelect');
+    const prevSelected = monthSelect.value;
+    monthSelect.innerHTML = months.map((m) => {
+      const [y, mm] = m.split('-');
+      return `<option value="${m}">${y}년 ${Number(mm)}월</option>`;
+    }).join('');
+    const monthToShow = months.includes(prevSelected) ? prevSelected : months[months.length - 1];
+    monthSelect.value = monthToShow;
+    monthSelect.onchange = () => renderMarketingNaverSaMonth(monthSelect.value);
+
+    renderMarketingNaverSaMonth(monthToShow);
+  }
+
+  function renderMarketingNaverSaMonth(monthStr) {
+    const monthRows = allMarketingRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr);
+    const channels = Array.from(new Set(monthRows.map((r) => r.channel))).sort();
+
+    document.getElementById('mktNaverSaSubtitle').textContent =
+      monthStr + ' · 브랜드 ' + channels.length.toLocaleString('ko-KR') + '개';
+
+    // ---- 브랜드별 상세 지표 (+ 합계) ----
+    const channelSummaries = channels.map((channel) => {
+      const cRows = monthRows.filter((r) => r.channel === channel);
+      return {
+        brandName: naverSaBrandName(channel),
+        spend: cRows.reduce((s, r) => s + Number(r.spend), 0),
+        impressions: cRows.reduce((s, r) => s + Number(r.impressions), 0),
+        clicks: cRows.reduce((s, r) => s + Number(r.clicks), 0),
+        conversions: cRows.reduce((s, r) => s + Number(r.conversions), 0),
+        revenue: cRows.reduce((s, r) => s + Number(r.revenue), 0),
+      };
+    });
+    const grandTotal = channelSummaries.reduce((acc, r) => ({
+      spend: acc.spend + r.spend,
+      impressions: acc.impressions + r.impressions,
+      clicks: acc.clicks + r.clicks,
+      conversions: acc.conversions + r.conversions,
+      revenue: acc.revenue + r.revenue,
+    }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 });
+
+    const summaryRowHtml = (r, isTotal) => {
+      const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100) : 0;
+      const cpc = r.clicks > 0 ? (r.spend / r.clicks) : 0;
+      const cpa = r.conversions > 0 ? (r.spend / r.conversions) : 0;
+      const roas = r.spend > 0 ? (r.revenue / r.spend * 100) : 0;
+      return `
+        <tr${isTotal ? ' class="channel-total-row"' : ''}>
+          <td>${escapeAttr(r.brandName)}</td>
+          <td class="num">${won(Math.round(r.spend))}</td>
+          <td class="num">${r.impressions.toLocaleString('ko-KR')}</td>
+          <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
+          <td class="num">${ctr.toFixed(2)}%</td>
+          <td class="num">${won(Math.round(cpc))}</td>
+          <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(Math.round(cpa))}</td>
+          <td class="num">${roas.toFixed(0)}%</td>
+        </tr>
+      `;
+    };
+
+    document.getElementById('mktNaverSaChannelTable').innerHTML = channelSummaries.length
+      ? channelSummaries.map((r) => summaryRowHtml(r, false)).join('') + summaryRowHtml({ brandName: '합계', ...grandTotal }, true)
+      : '<tr><td colspan="9" class="mkt-empty-row">이 달에 데이터가 없어요.</td></tr>';
+
+    // ---- 일별 성과 (브랜드 열 추가) ----
+    const dailyRows = allMarketingDailyRows
+      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.date && r.date.slice(0, 7) === monthStr)
+      .slice()
+      .sort((a, b) => b.date === a.date
+        ? naverSaBrandName(a.channel).localeCompare(naverSaBrandName(b.channel))
+        : b.date.localeCompare(a.date));
+
+    document.getElementById('mktNaverSaDailyTable').innerHTML = dailyRows.length
+      ? dailyRows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const conversions = Number(r.conversions);
+          const revenue = Number(r.revenue);
+          const dCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const dCpc = clicks > 0 ? (spend / clicks) : 0;
+          const dRoas = spend > 0 ? (revenue / spend * 100) : 0;
+          return `
+            <tr>
+              <td>${r.date}</td>
+              <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${dCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(dCpc))}</td>
+              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+              <td class="num">${won(revenue)}</td>
+              <td class="num">${dRoas.toFixed(0)}%</td>
+            </tr>
+          `;
+        }).join('')
+      : '<tr><td colspan="10" class="mkt-empty-row">이 달에 일별 데이터가 아직 없어요.</td></tr>';
+
+    // ---- 광고 구분 카드 (전 브랜드 합산) ----
+    const campaignRows = allMarketingCampaignRows
+      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr)
+      .map((r) => ({ ...r, ad_type: r.ad_type || 'SA' }));
+
+    document.getElementById('mktNaverSaAdTypeCards').innerHTML = AD_TYPES.map((type) => {
+      const tRows = campaignRows.filter((r) => r.ad_type === type);
+      const spend = tRows.reduce((s, r) => s + Number(r.spend), 0);
+      const revenue = tRows.reduce((s, r) => s + Number(r.revenue), 0);
+      const roas = spend > 0 ? (revenue / spend * 100) : 0;
+      return `
+        <div class="ad-type-card">
+          <div class="ad-type-card-label"><span class="ad-type-badge ${type}">${type}</span></div>
+          <div class="ad-type-value">${won(Math.round(spend))}</div>
+          <div class="ad-type-sub">${tRows.length ? `매출 ${won(Math.round(revenue))} · ROAS ${roas.toFixed(0)}%` : '데이터 없음'}</div>
+        </div>
+      `;
+    }).join('');
+
+    renderMarketingNaverSaCampaignTable(campaignRows.slice().sort((a, b) => Number(b.spend) - Number(a.spend)));
+
+    // ---- 키워드별 성과 / 낭비 키워드 (브랜드 열 추가) ----
+    const keywordRows = allMarketingKeywordRows
+      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr)
+      .slice()
+      .sort((a, b) => Number(b.spend) - Number(a.spend));
+
+    document.getElementById('mktNaverSaKeywordTable').innerHTML = keywordRows.length
+      ? keywordRows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const conversions = Number(r.conversions);
+          const kCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const kCpc = clicks > 0 ? (spend / clicks) : 0;
+          return `
+            <tr>
+              <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
+              <td>${escapeAttr(r.keyword)}</td>
+              <td>${escapeAttr(r.campaign)}</td>
+              <td>${escapeAttr(r.adgroup)}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${kCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(kCpc))}</td>
+              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+            </tr>
+          `;
+        }).join('')
+      : '<tr><td colspan="10" class="mkt-empty-row">이 달에 키워드 데이터가 아직 없어요. (아직 동기화 안 된 달일 수 있어요)</td></tr>';
+
+    const wasteRows = keywordRows.filter((r) => Number(r.clicks) >= WASTE_KEYWORD_MIN_CLICKS && Number(r.conversions) === 0);
+    document.getElementById('mktNaverSaWasteKeywordTable').innerHTML = wasteRows.length
+      ? wasteRows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const wCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const wCpc = clicks > 0 ? (spend / clicks) : 0;
+          return `
+            <tr>
+              <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
+              <td>${escapeAttr(r.keyword)}</td>
+              <td>${escapeAttr(r.campaign)}</td>
+              <td>${escapeAttr(r.adgroup)}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${wCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(wCpc))}</td>
+            </tr>
+          `;
+        }).join('')
+      : `<tr><td colspan="9" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
+  }
+
+  function renderMarketingNaverSaCampaignTable(campaignRows) {
+    mktNaverSaCampaignRowsCache = campaignRows;
+    const filterEl = document.getElementById('mktNaverSaAdTypeFilter');
+    const options = ['전체', ...AD_TYPES];
+    filterEl.innerHTML = options.map((opt) => `
+      <button type="button" class="ad-type-filter-btn${opt === mktNaverSaAdTypeFilterValue ? ' active' : ''}"
+        onclick="setMarketingNaverSaAdTypeFilter('${escapeAttr(opt)}')">${escapeAttr(opt)}</button>
+    `).join('');
+
+    const rows = mktNaverSaAdTypeFilterValue !== '전체'
+      ? campaignRows.filter((r) => r.ad_type === mktNaverSaAdTypeFilterValue)
+      : campaignRows;
+
+    document.getElementById('mktNaverSaCampaignTable').innerHTML = rows.length
+      ? rows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const conversions = Number(r.conversions);
+          const revenue = Number(r.revenue);
+          const rCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const rCpc = clicks > 0 ? (spend / clicks) : 0;
+          const rCpa = conversions > 0 ? (spend / conversions) : 0;
+          const rRoas = spend > 0 ? (revenue / spend * 100) : 0;
+          return `
+            <tr>
+              <td><span class="ad-type-badge ${escapeAttr(r.ad_type)}">${escapeAttr(r.ad_type)}</span></td>
+              <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
+              <td>${escapeAttr(r.campaign)}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${rCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(rCpc))}</td>
+              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+              <td class="num">${won(Math.round(rCpa))}</td>
+              <td class="num">${rRoas.toFixed(0)}%</td>
+            </tr>
+          `;
+        }).join('')
+      : '<tr><td colspan="11" class="mkt-empty-row">이 달·구분에 캠페인별 데이터가 아직 없어요.</td></tr>';
+  }
+
+  function setMarketingNaverSaAdTypeFilter(value) {
+    mktNaverSaAdTypeFilterValue = value;
+    renderMarketingNaverSaCampaignTable(mktNaverSaCampaignRowsCache);
+  }
+
+  function uploadMarketingNaverSaAdFile() {
+    const channel = document.getElementById('mktNaverSaUploadBrandSelect').value;
+    const monthStr = document.getElementById('mktNaverSaMonthSelect').value;
+    const adType = document.getElementById('mktNaverSaUploadType').value;
+    const input = document.getElementById('mktNaverSaUploadFile');
+    const status = document.getElementById('mktNaverSaUploadStatus');
+    const file = input.files[0];
+    if (!file) { status.textContent = '파일을 먼저 선택하세요.'; return; }
+    if (!monthStr) { status.textContent = '먼저 상단에서 반영할 월을 선택하세요.'; return; }
+
+    status.textContent = '읽는 중...';
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        if (grid.length < 2) { status.textContent = '데이터가 없는 파일입니다.'; return; }
+
+        const headerRow = grid[0];
+        const idx = {
+          campaign: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.campaign),
+          impressions: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.impressions),
+          clicks: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.clicks),
+          spend: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.spend),
+          conversions: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.conversions),
+          revenue: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.revenue)
+        };
+        if (idx.campaign === -1 || idx.spend === -1) {
+          status.textContent = '"캠페인" · "비용/광고비" 컬럼을 찾지 못했습니다. 컬럼명을 확인해주세요.';
+          return;
+        }
+
+        const byCampaign = new Map();
+        for (const row of grid.slice(1)) {
+          const campaign = String(row[idx.campaign] || '').trim();
+          if (!campaign) continue;
+          const cur = byCampaign.get(campaign) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
+          cur.spend += Number(row[idx.spend]) || 0;
+          if (idx.impressions !== -1) cur.impressions += Number(row[idx.impressions]) || 0;
+          if (idx.clicks !== -1) cur.clicks += Number(row[idx.clicks]) || 0;
+          if (idx.conversions !== -1) cur.conversions += Number(row[idx.conversions]) || 0;
+          if (idx.revenue !== -1) cur.revenue += Number(row[idx.revenue]) || 0;
+          byCampaign.set(campaign, cur);
+        }
+
+        const rows = Array.from(byCampaign.entries()).map(([campaign, totals]) => ({
+          month: monthStr, channel, ad_type: adType, campaign, ...totals
+        }));
+        if (rows.length === 0) { status.textContent = '업로드할 캠페인이 없습니다.'; return; }
+
+        const { error } = await client
+          .from('ad_performance_campaigns')
+          .upsert(rows, { onConflict: 'month,channel,ad_type,campaign' });
+        if (error) { status.textContent = '업로드 실패: ' + error.message; return; }
+
+        status.textContent = `${rows.length.toLocaleString('ko-KR')}개 캠페인(${adType})을 저장했습니다.`;
+        input.value = '';
+        loadMarketingCampaignData().then(() => renderMarketingNaverSaMonth(monthStr));
+      } catch (err) {
+        status.textContent = '파일을 읽는 중 오류가 발생했습니다: ' + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
   }
 
   // ==================== 상품별 광고비ROI ====================
