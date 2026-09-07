@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>광고 마케팅 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -192,6 +193,30 @@
   .mkt-bar { height: 4px; background: rgba(15,23,42,.07); border-radius: 2px; margin-top: 10px; overflow: hidden; }
   .mkt-bar-fill { height: 100%; background: linear-gradient(90deg,#fb923c,#f97316); }
   .mkt-rank-fill { height: 100%; background: linear-gradient(90deg,#fb923c,#f97316); border-radius: 4px; }
+
+  /* ---- 네이버 SA/GFA/파워링크 구분 ---- */
+  .ad-type-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .ad-type-card { background: #ffffff; border: 1px solid rgba(15,23,42,.07); border-radius: 12px; padding: 16px 18px; }
+  .ad-type-card-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; }
+  .ad-type-value { font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+  .ad-type-sub { font-size: 11px; color: #64748b; }
+  .ad-type-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .ad-type-badge.SA { background: rgba(77,124,254,.12); color: #1d4ed8; }
+  .ad-type-badge.GFA { background: rgba(236,72,153,.12); color: #be185d; }
+  .ad-type-badge.파워링크 { background: rgba(234,88,12,.12); color: #c2410c; }
+  .ad-type-filter-btn {
+    background: #f4f5f8; color: #334155; border: 1px solid rgba(15,23,42,.12);
+    border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .ad-type-filter-btn.active { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+  .ad-upload-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .ad-upload-row input[type="file"] { font-size: 12px; max-width: 220px; }
+  .btn-primary {
+    background: #0f172a; color: #ffffff; border: none; border-radius: 8px;
+    padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .btn-primary:hover { background: #1e293b; }
+  .ad-upload-status { font-size: 12px; color: #64748b; }
 </style>
 </head>
 <body>
@@ -308,15 +333,37 @@
           </div>
         </section>
 
+        <section class="panel" id="mktAdTypePanel" style="display:none">
+          <div class="panel-head">
+            <h2>네이버 광고 구분 (SA · GFA · 파워링크)</h2>
+            <span class="panel-note">SA는 검색광고 자동연동, GFA·파워링크는 파일 업로드 기준</span>
+          </div>
+          <div class="ad-type-row" id="mktAdTypeCards"></div>
+          <div class="ad-upload-row">
+            <select id="mktAdUploadType" class="vendor-select">
+              <option value="SA">SA</option>
+              <option value="GFA">GFA</option>
+              <option value="파워링크">파워링크</option>
+            </select>
+            <input type="file" id="mktAdUploadFile" accept=".xlsx,.xls,.csv">
+            <button type="button" class="btn-primary" onclick="uploadMarketingAdFile()">업로드</button>
+            <span class="ad-upload-status" id="mktAdUploadStatus"></span>
+          </div>
+          <div class="ad-upload-row" style="margin-top:2px;">
+            <span class="panel-note">엑셀/CSV 컬럼 예시: 캠페인(명), 날짜, 노출(수), 클릭(수), 비용/광고비, 전환(수), 전환매출/매출 — 컬럼명이 비슷하면 자동 인식됩니다. 선택한 '구분'·현재 보고 있는 월 기준으로 캠페인별 합계를 저장합니다.</span>
+          </div>
+        </section>
+
         <section class="panel">
           <div class="panel-head">
             <h2>캠페인별 성과</h2>
             <span class="panel-note">광고비 단위: 원 · 기간 내 누적</span>
           </div>
+          <div class="filter-group" id="mktCampaignAdTypeFilter" style="display:none; margin-bottom: 10px;"></div>
           <div class="scroll-box">
             <table>
               <thead>
-                <tr><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+                <tr><th>구분</th><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
               </thead>
               <tbody id="mktBrandCampaignTable"></tbody>
             </table>
@@ -1141,34 +1188,11 @@
 
     const campaignRows = allMarketingCampaignRows
       .filter((r) => r.channel === channel && r.month === monthStr)
+      .map((r) => ({ ...r, ad_type: r.ad_type || 'SA' }))
       .sort((a, b) => Number(b.spend) - Number(a.spend));
 
-    document.getElementById('mktBrandCampaignTable').innerHTML = campaignRows.length
-      ? campaignRows.map((r) => {
-          const spend = Number(r.spend);
-          const impressions = Number(r.impressions);
-          const clicks = Number(r.clicks);
-          const conversions = Number(r.conversions);
-          const revenue = Number(r.revenue);
-          const rCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
-          const rCpc = clicks > 0 ? (spend / clicks) : 0;
-          const rCpa = conversions > 0 ? (spend / conversions) : 0;
-          const rRoas = spend > 0 ? (revenue / spend * 100) : 0;
-          return `
-            <tr>
-              <td>${escapeAttr(r.campaign)}</td>
-              <td class="num">${won(spend)}</td>
-              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
-              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
-              <td class="num">${rCtr.toFixed(2)}%</td>
-              <td class="num">${won(Math.round(rCpc))}</td>
-              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
-              <td class="num">${won(Math.round(rCpa))}</td>
-              <td class="num">${rRoas.toFixed(0)}%</td>
-            </tr>
-          `;
-        }).join('')
-      : '<tr><td colspan="9" class="mkt-empty-row">이 채널·기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
+    renderMarketingAdTypePanel(channel, campaignRows);
+    renderMarketingCampaignTable(campaignRows);
 
     const channelKeywordRows = allMarketingKeywordRows
       .filter((r) => r.channel === channel && r.month === monthStr)
@@ -1222,6 +1246,174 @@
           `;
         }).join('')
       : `<tr><td colspan="8" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
+  }
+
+  // ==================== 네이버 SA / GFA / 파워링크 구분 ====================
+  const AD_TYPES = ['SA', 'GFA', '파워링크'];
+  let mktCampaignRowsCache = [];
+  let mktCampaignAdTypeFilterValue = '전체';
+
+  function renderMarketingAdTypePanel(channel, campaignRows) {
+    const panel = document.getElementById('mktAdTypePanel');
+    const isNaver = channel.startsWith('네이버');
+    panel.style.display = isNaver ? '' : 'none';
+    if (!isNaver) return;
+
+    document.getElementById('mktAdTypeCards').innerHTML = AD_TYPES.map((type) => {
+      const rows = campaignRows.filter((r) => r.ad_type === type);
+      const spend = rows.reduce((s, r) => s + Number(r.spend), 0);
+      const revenue = rows.reduce((s, r) => s + Number(r.revenue), 0);
+      const roas = spend > 0 ? (revenue / spend * 100) : 0;
+      return `
+        <div class="ad-type-card">
+          <div class="ad-type-card-label"><span class="ad-type-badge ${type}">${type}</span></div>
+          <div class="ad-type-value">${won(Math.round(spend))}</div>
+          <div class="ad-type-sub">${rows.length ? `매출 ${won(Math.round(revenue))} · ROAS ${roas.toFixed(0)}%` : '데이터 없음'}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderMarketingCampaignTable(campaignRows) {
+    mktCampaignRowsCache = campaignRows;
+    const channel = currentMarketingBrand;
+    const isNaver = channel && channel.startsWith('네이버');
+
+    const filterEl = document.getElementById('mktCampaignAdTypeFilter');
+    if (isNaver) {
+      filterEl.style.display = '';
+      const options = ['전체', ...AD_TYPES];
+      filterEl.innerHTML = options.map((opt) => `
+        <button type="button" class="ad-type-filter-btn${opt === mktCampaignAdTypeFilterValue ? ' active' : ''}"
+          onclick="setMarketingCampaignAdTypeFilter('${escapeAttr(opt)}')">${escapeAttr(opt)}</button>
+      `).join('');
+    } else {
+      filterEl.style.display = 'none';
+    }
+
+    const rows = (isNaver && mktCampaignAdTypeFilterValue !== '전체')
+      ? campaignRows.filter((r) => r.ad_type === mktCampaignAdTypeFilterValue)
+      : campaignRows;
+
+    document.getElementById('mktBrandCampaignTable').innerHTML = rows.length
+      ? rows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const conversions = Number(r.conversions);
+          const revenue = Number(r.revenue);
+          const rCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const rCpc = clicks > 0 ? (spend / clicks) : 0;
+          const rCpa = conversions > 0 ? (spend / conversions) : 0;
+          const rRoas = spend > 0 ? (revenue / spend * 100) : 0;
+          return `
+            <tr>
+              <td><span class="ad-type-badge ${escapeAttr(r.ad_type)}">${escapeAttr(r.ad_type)}</span></td>
+              <td>${escapeAttr(r.campaign)}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${rCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(rCpc))}</td>
+              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+              <td class="num">${won(Math.round(rCpa))}</td>
+              <td class="num">${rRoas.toFixed(0)}%</td>
+            </tr>
+          `;
+        }).join('')
+      : '<tr><td colspan="10" class="mkt-empty-row">이 채널·기간·구분에 캠페인별 데이터가 아직 없어요.</td></tr>';
+  }
+
+  function setMarketingCampaignAdTypeFilter(value) {
+    mktCampaignAdTypeFilterValue = value;
+    renderMarketingCampaignTable(mktCampaignRowsCache);
+  }
+
+  // 네이버 SA/GFA/파워링크 원본 엑셀·CSV를 업로드해서 ad_performance_campaigns에
+  // (월·채널·구분·캠페인) 단위로 합산 저장합니다. SA는 sync-naver-ads.js가 이미 자동으로
+  // 채워주므로, 이 업로드는 주로 GFA·파워링크용입니다.
+  const AD_UPLOAD_HEADER_ALIASES = {
+    campaign: ['캠페인', '캠페인명', '캠페인이름', 'campaign'],
+    impressions: ['노출수', '노출', 'impressions'],
+    clicks: ['클릭수', '클릭', 'clicks'],
+    spend: ['비용', '광고비', '총비용', '총 비용', '총비용(VAT포함)', 'spend', 'cost'],
+    conversions: ['전환수', '전환', 'conversions'],
+    revenue: ['전환매출', '매출', '전환매출액', 'revenue']
+  };
+
+  function findAdUploadColumnIndex(headerRow, aliases) {
+    for (let i = 0; i < headerRow.length; i++) {
+      const cell = String(headerRow[i] || '').trim();
+      if (aliases.includes(cell)) return i;
+    }
+    return -1;
+  }
+
+  function uploadMarketingAdFile() {
+    const channel = currentMarketingBrand;
+    const monthStr = document.getElementById('mktBrandMonthSelect').value;
+    const adType = document.getElementById('mktAdUploadType').value;
+    const input = document.getElementById('mktAdUploadFile');
+    const status = document.getElementById('mktAdUploadStatus');
+    const file = input.files[0];
+    if (!file) { status.textContent = '파일을 먼저 선택하세요.'; return; }
+    if (!monthStr) { status.textContent = '먼저 상단에서 반영할 월을 선택하세요.'; return; }
+
+    status.textContent = '읽는 중...';
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        if (grid.length < 2) { status.textContent = '데이터가 없는 파일입니다.'; return; }
+
+        const headerRow = grid[0];
+        const idx = {
+          campaign: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.campaign),
+          impressions: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.impressions),
+          clicks: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.clicks),
+          spend: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.spend),
+          conversions: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.conversions),
+          revenue: findAdUploadColumnIndex(headerRow, AD_UPLOAD_HEADER_ALIASES.revenue)
+        };
+        if (idx.campaign === -1 || idx.spend === -1) {
+          status.textContent = '"캠페인" · "비용/광고비" 컬럼을 찾지 못했습니다. 컬럼명을 확인해주세요.';
+          return;
+        }
+
+        // 캠페인명 기준으로 합산합니다 (파일이 일자별 등 더 잘게 쪼개져 있어도 월 합계로 저장).
+        const byCampaign = new Map();
+        for (const row of grid.slice(1)) {
+          const campaign = String(row[idx.campaign] || '').trim();
+          if (!campaign) continue;
+          const cur = byCampaign.get(campaign) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
+          cur.spend += Number(row[idx.spend]) || 0;
+          if (idx.impressions !== -1) cur.impressions += Number(row[idx.impressions]) || 0;
+          if (idx.clicks !== -1) cur.clicks += Number(row[idx.clicks]) || 0;
+          if (idx.conversions !== -1) cur.conversions += Number(row[idx.conversions]) || 0;
+          if (idx.revenue !== -1) cur.revenue += Number(row[idx.revenue]) || 0;
+          byCampaign.set(campaign, cur);
+        }
+
+        const rows = Array.from(byCampaign.entries()).map(([campaign, totals]) => ({
+          month: monthStr, channel, ad_type: adType, campaign, ...totals
+        }));
+        if (rows.length === 0) { status.textContent = '업로드할 캠페인이 없습니다.'; return; }
+
+        const { error } = await client
+          .from('ad_performance_campaigns')
+          .upsert(rows, { onConflict: 'month,channel,ad_type,campaign' });
+        if (error) { status.textContent = '업로드 실패: ' + error.message; return; }
+
+        status.textContent = `${rows.length.toLocaleString('ko-KR')}개 캠페인(${adType})을 저장했습니다.`;
+        input.value = '';
+        loadMarketingCampaignData().then(() => renderMarketingBrandMonth(channel, monthStr));
+      } catch (err) {
+        status.textContent = '파일을 읽는 중 오류가 발생했습니다: ' + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
   }
 
   // ==================== 상품별 광고비ROI ====================
