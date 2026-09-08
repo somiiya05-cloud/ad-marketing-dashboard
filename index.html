@@ -584,7 +584,6 @@
             <span class="sa-filter-field-label">브랜드</span>
             <select id="saBrandSelect" class="vendor-select" onchange="setSaBrand(this.value)">
               <option value="">전체 브랜드</option>
-              <option value="네이버 코드니처">코드니처</option>
               <option value="네이버 빠이러스">빠이러스</option>
               <option value="네이버 명퉤">명퉤</option>
               <option value="네이버 잠비에">잠비에</option>
@@ -1971,6 +1970,8 @@
   }
 
   // ==================== 네이버SA 대시보드: 공통 유틸(기간/비교/집계/ROAS/CPA) ====================
+  // 전체 SA 요약/비중 계산에는 그대로 포함되는 "전체 브랜드" 목록. 개별 카드·필터·진단에
+  // 브랜드를 하나씩 따로 보여줄지는 SA_CARD_BRANDS_DISPLAY로 별도 관리한다.
   const SA_CARD_BRANDS = [
     { channel: '네이버 코드니처', name: '코드니처' },
     { channel: '네이버 빠이러스', name: '빠이러스' },
@@ -1981,6 +1982,8 @@
     { channel: '네이버 그로우유즈', name: '그로우뮤즈' },
     { channel: '네이버 라스마', name: '라이프스타일마트' },
   ];
+  // 코드니처는 요청에 따라 개별 카드/필터/진단에는 따로 표시하지 않는다(전체 합계엔 그대로 포함).
+  const SA_CARD_BRANDS_DISPLAY = SA_CARD_BRANDS.filter((b) => b.channel !== '네이버 코드니처');
   const SA_ROAS_TARGET_DEFAULT = MARKETING_ROAS_TARGET; // 400 — 전 브랜드 공통 기본 목표 ROAS
   const SA_ROAS_MIN_DEFAULT = 100; // 손익분기(광고비=매출) — 전 브랜드 공통 기본 최소 ROAS
   // 브랜드마다 다른 목표/최소 ROAS가 필요하면 여기에 채널명으로 추가하세요. 없는 브랜드는 위 기본값을 씁니다.
@@ -2173,7 +2176,7 @@
     `;
 
     document.getElementById('mktNaverSaSubtitle').textContent =
-      `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS.length}개 중 데이터 있는 브랜드 기준`;
+      `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS_DISPLAY.length}개 중 데이터 있는 브랜드 기준`;
 
     renderSaSummaryCards(curRows, cmpRows);
     renderSaBrandCards(from, to, cmp);
@@ -2200,7 +2203,7 @@
 
   function renderSaBrandCards(from, to, cmp) {
     const statusLabel = { good: '우수', caution: '주의', inefficient: '비효율', 'no-data': '데이터 없음' };
-    document.getElementById('saBrandCards').innerHTML = SA_CARD_BRANDS.map((b) => {
+    document.getElementById('saBrandCards').innerHTML = SA_CARD_BRANDS_DISPLAY.map((b) => {
       const curAgg = sumRows(saDailyRowsForChannel(b.channel, from, to));
       const cmpAgg = sumRows(saDailyRowsForChannel(b.channel, cmp.from, cmp.to));
       const status = classifyBrandStatus(b.channel, curAgg);
@@ -2452,7 +2455,7 @@
     const channels = SA_CARD_BRANDS.map((b) => b.channel);
     const totalAgg = sumRows(saDailyRowsForBrands(channels, from, to));
 
-    for (const b of SA_CARD_BRANDS) {
+    for (const b of SA_CARD_BRANDS_DISPLAY) {
       const agg = sumRows(saDailyRowsForChannel(b.channel, from, to));
       if (agg.spend <= 0) continue;
       const roas = roasOf(agg);
