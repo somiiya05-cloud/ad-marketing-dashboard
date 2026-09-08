@@ -315,6 +315,7 @@
   .sa-status-tag.waste { background: rgba(220,38,38,.12); color: #dc2626; }
   .sa-status-tag.no-revenue { background: rgba(100,116,139,.12); color: #475569; }
   .sa-status-tag.normal { background: rgba(15,23,42,.06); color: #94a3b8; }
+  .sa-status-tag.info { background: rgba(77,124,254,.12); color: #1d4ed8; }
 
   /* ---- 상세 성과 탭 / 펼침 행 / 말줄임 ---- */
   .sa-expand-toggle { cursor: pointer; color: #64748b; text-align: center; width: 22px; user-select: none; }
@@ -2032,7 +2033,7 @@
   // 랜딩 URL이 아직 동기화 안 된 과거 데이터(이 기능 추가 이전)는 "확인중"으로 표시한다.
   function saSalesChannelBadge(r) {
     if (!r.salesChannel) return '<span class="sa-status-tag normal">확인중</span>';
-    const cls = r.salesChannel === '스마트스토어' ? 'caution' : 'good';
+    const cls = r.salesChannel === '스마트스토어' ? 'caution' : r.salesChannel === '네이버브랜드스토어' ? 'info' : 'good';
     const title = r.landingUrl ? escapeAttr(r.landingUrl) : '';
     return `<span class="sa-status-tag ${cls}" title="${title}">${escapeAttr(r.salesChannel)}</span>`;
   }
