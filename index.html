@@ -604,6 +604,8 @@
             </select>
           </div>
           <button type="button" class="filter-reset-btn" onclick="resetSaFilters()">필터 초기화</button>
+          <button type="button" class="btn-primary" id="saManualSyncBtn" onclick="triggerSaManualSync()">지금 동기화</button>
+          <span class="sa-filter-meta-item" id="saManualSyncStatus"></span>
         </div>
         <div class="sa-filter-meta" id="saFilterMeta"></div>
         <div class="sa-filter-note">캠페인·키워드·낭비 키워드 표는 일별 데이터가 없어 아래 "상세 성과"에서 월 단위로 따로 조회합니다. 위 요약·브랜드카드·그래프·진단은 SA+파워링크 합산이고, "상세 성과 › 캠페인 성과" 탭만 SA만 따로 볼 수 있습니다.</div>
@@ -2278,6 +2280,31 @@
     document.getElementById('saBrandSelect').value = '';
     document.getElementById('saCompareSelect').value = 'prevPeriod';
     renderSaDashboard();
+  }
+
+  // ---- "지금 동기화" 버튼: my-dashboard 프로젝트의 GitHub Actions 트리거 엔드포인트를
+  // 호출한다(별도 Vercel 프로젝트라 절대경로). 실제 동기화는 GitHub Actions에서 평소처럼
+  // 1~2분 걸려 완료되므로, 여기서는 요청만 보내고 기다리지 않는다.
+  const SA_TRIGGER_SYNC_URL = 'https://my-dashboard-three-fawn.vercel.app/api/trigger-naver-sync';
+  let saManualSyncCooldownUntil = 0;
+  function triggerSaManualSync() {
+    const btn = document.getElementById('saManualSyncBtn');
+    const status = document.getElementById('saManualSyncStatus');
+    if (Date.now() < saManualSyncCooldownUntil) return;
+    btn.disabled = true;
+    status.textContent = '동기화 요청 중...';
+    fetch(SA_TRIGGER_SYNC_URL, { method: 'POST' })
+      .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        status.textContent = (ok && data.triggered)
+          ? '동기화 요청 완료 · 1~2분 후 새로고침 해주세요'
+          : '요청 실패: ' + (data && data.detail ? data.detail : (data && data.results ? data.results.filter((r) => !r.ok).map((r) => r.workflow).join(', ') + ' 확인 필요' : '알 수 없는 오류'));
+      })
+      .catch((e) => { status.textContent = '요청 실패: ' + e.message; })
+      .finally(() => {
+        saManualSyncCooldownUntil = Date.now() + 60000;
+        setTimeout(() => { btn.disabled = false; }, 60000);
+      });
   }
 
   function renderSaBrandDetail(from, to, cmp) {
