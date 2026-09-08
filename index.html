@@ -232,9 +232,124 @@
   .status-dot.good { background: #16a34a; }
   .status-dot.caution { background: #d97706; }
   .status-dot.waste { background: #dc2626; }
+  .status-dot.no-revenue { background: #64748b; }
   .row-good { background: rgba(22,163,74,.06); }
   .row-caution { background: rgba(217,119,6,.07); }
   .row-waste { background: rgba(220,38,38,.06); }
+  .row-no-revenue { background: rgba(100,116,139,.06); }
+
+  /* ---- 네이버SA 대시보드 개편: 상단 고정 필터바 ---- */
+  .sa-filter-bar {
+    position: sticky; top: 0; z-index: 30; background: #f1f2f6;
+    padding: 12px 0 14px; margin: -4px 0 16px; border-bottom: 1px solid rgba(15,23,42,.08);
+  }
+  .sa-filter-field { display: flex; align-items: center; gap: 6px; }
+  .sa-filter-field-label { font-size: 12px; color: #64748b; font-weight: 600; white-space: nowrap; }
+  .sa-filter-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: #64748b; }
+  .sa-filter-meta-item { display: inline-flex; align-items: center; gap: 4px; }
+  .sa-filter-note { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
+  /* ---- 브랜드 대형 카드 ---- */
+  .brand-card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 4px; }
+  .brand-card {
+    background: #ffffff; border: 1px solid rgba(15,23,42,.07); border-top: 4px solid #cbd5e1;
+    border-radius: 14px; padding: 18px 20px; cursor: pointer; transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .brand-card:hover { box-shadow: 0 6px 18px rgba(15,23,42,.08); transform: translateY(-1px); }
+  .brand-card.selected { outline: 2px solid #0f172a; outline-offset: -1px; }
+  .brand-card.status-good { border-top-color: #16a34a; }
+  .brand-card.status-caution { border-top-color: #d97706; }
+  .brand-card.status-inefficient { border-top-color: #dc2626; }
+  .brand-card.status-no-data { border-top-color: #94a3b8; opacity: .75; }
+  .brand-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .brand-card-name { font-size: 16px; font-weight: 800; color: #0f172a; }
+  .brand-card-status { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .brand-card-status.status-good { background: rgba(22,163,74,.12); color: #15803d; }
+  .brand-card-status.status-caution { background: rgba(217,119,6,.12); color: #b45309; }
+  .brand-card-status.status-inefficient { background: rgba(220,38,38,.12); color: #dc2626; }
+  .brand-card-status.status-no-data { background: rgba(100,116,139,.12); color: #64748b; }
+  .brand-card-metric { display: flex; align-items: baseline; justify-content: space-between; padding: 3px 0; }
+  .brand-card-metric-label { font-size: 12px; color: #64748b; }
+  .brand-card-metric-value { font-size: 15px; font-weight: 800; color: #0f172a; }
+  .brand-card-delta { font-size: 11px; color: #64748b; margin-top: 8px; }
+  .brand-card-empty { font-size: 12px; color: #94a3b8; padding: 10px 0; }
+  .brand-card-link { font-size: 12px; font-weight: 700; color: #1d4ed8; margin-top: 10px; }
+
+  /* ---- 델타(증감) 표시 ---- */
+  .delta-up { color: #16a34a; font-weight: 700; }
+  .delta-down { color: #dc2626; font-weight: 700; }
+  .delta-flat { color: #64748b; }
+  .delta-neutral { color: #475569; font-weight: 600; }
+  .kpi-delta { font-size: 11px; margin-top: 6px; }
+  .kpi-delta-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+  .kpi-value-good { color: #16a34a; }
+  .kpi-value-bad { color: #dc2626; }
+
+  /* ---- 일별 추이 그래프 (SVG) ---- */
+  .sa-chart-outer { position: relative; }
+  .sa-chart-svg { width: 100%; height: 260px; display: block; }
+  .sa-chart-bar { fill: #cbd5e1; }
+  .sa-chart-hover:hover ~ .sa-chart-bar { }
+  .sa-chart-line-revenue { fill: none; stroke: #2563eb; stroke-width: 2; }
+  .sa-chart-line-roas { fill: none; stroke: #dc2626; stroke-width: 2; }
+  .sa-chart-goal-line { stroke: #16a34a; stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .sa-chart-min-line { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 3 4; }
+  .sa-chart-x-label { font-size: 9px; fill: #94a3b8; }
+  .sa-chart-hover { cursor: pointer; }
+  .sa-chart-tooltip {
+    position: absolute; top: 8px; transform: translateX(-50%); background: #0f172a; color: #f5f6fa;
+    border-radius: 10px; padding: 8px 12px; font-size: 12px; line-height: 1.6; pointer-events: none;
+    box-shadow: 0 8px 20px rgba(15,23,42,.25); white-space: nowrap; z-index: 5;
+  }
+  .sa-chart-tooltip-date { font-weight: 800; margin-bottom: 2px; }
+
+  /* ---- 오늘의 광고 진단 / 상태 뱃지 ---- */
+  .sa-diag-badge { display: inline-flex; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .sa-diag-badge.waste { background: rgba(220,38,38,.12); color: #dc2626; }
+  .sa-diag-badge.caution { background: rgba(217,119,6,.12); color: #b45309; }
+  .sa-diag-badge.good { background: rgba(22,163,74,.12); color: #15803d; }
+  .sa-diag-badge.info { background: rgba(77,124,254,.12); color: #1d4ed8; }
+  .sa-status-tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .sa-status-tag.good { background: rgba(22,163,74,.12); color: #15803d; }
+  .sa-status-tag.caution { background: rgba(217,119,6,.12); color: #b45309; }
+  .sa-status-tag.waste { background: rgba(220,38,38,.12); color: #dc2626; }
+  .sa-status-tag.no-revenue { background: rgba(100,116,139,.12); color: #475569; }
+  .sa-status-tag.normal { background: rgba(15,23,42,.06); color: #94a3b8; }
+
+  /* ---- 상세 성과 탭 / 펼침 행 / 말줄임 ---- */
+  .sa-expand-toggle { cursor: pointer; color: #64748b; text-align: center; width: 22px; user-select: none; }
+  .sa-truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sa-detail-row td { background: rgba(15,23,42,.025); color: #64748b; font-size: 12px; padding: 7px 10px 7px 32px; }
+
+  /* ---- 로딩 스켈레톤 ---- */
+  .skeleton-block {
+    border-radius: 10px; background: linear-gradient(90deg, rgba(15,23,42,.06) 25%, rgba(15,23,42,.10) 37%, rgba(15,23,42,.06) 63%);
+    background-size: 400% 100%; animation: skeleton-shimmer 1.4s ease infinite;
+  }
+  @keyframes skeleton-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  .skeleton-kpi-card { height: 78px; border-radius: 12px; }
+  .skeleton-brand-card { height: 190px; border-radius: 14px; }
+
+  /* 표 행 높이를 조금 더 넉넉하게 (요청: 행이 너무 좁지 않게) */
+  #marketingNaverSaView td, #marketingNaverSaView th { padding: 10px 12px; }
+
+  /* ---- 반응형 (이 파일 최초의 미디어쿼리) ---- */
+  @media (max-width: 1024px) {
+    .brand-card-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .shell { flex-direction: column; }
+    .sidebar { width: 100%; }
+    .main { padding: 16px; }
+    .brand-card-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .brand-card { padding: 14px 14px; }
+    .kpi-row-compact { grid-template-columns: repeat(2, 1fr); }
+    .sa-filter-bar .filter-group { flex-direction: column; align-items: stretch; }
+    .sa-chart-x-label { display: none; }
+  }
+  @media (max-width: 420px) {
+    .brand-card-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -444,8 +559,53 @@
         </div>
         <div class="topbar-right">
           <span class="live-badge"><span class="live-dot"></span>LIVE</span>
-          <select id="mktNaverSaMonthSelect" class="month-select"></select>
         </div>
+      </div>
+
+      <div class="sa-filter-bar">
+        <div class="filter-group">
+          <div class="sa-filter-field">
+            <span class="sa-filter-field-label">조회 기간</span>
+            <select id="saPeriodSelect" class="vendor-select" onchange="setSaPeriod(this.value)">
+              <option value="today">오늘</option>
+              <option value="yesterday">어제</option>
+              <option value="last7">최근 7일</option>
+              <option value="thisMonth" selected>이번 달</option>
+              <option value="lastMonth">지난달</option>
+              <option value="custom">직접 설정</option>
+            </select>
+          </div>
+          <div class="sa-filter-field" id="saCustomDateWrap" style="display:none;">
+            <input type="date" id="saCustomFrom" class="date-input" onchange="setSaCustomRange()">
+            <span class="date-range-sep">~</span>
+            <input type="date" id="saCustomTo" class="date-input" onchange="setSaCustomRange()">
+          </div>
+          <div class="sa-filter-field">
+            <span class="sa-filter-field-label">브랜드</span>
+            <select id="saBrandSelect" class="vendor-select" onchange="setSaBrand(this.value)">
+              <option value="">전체 브랜드</option>
+              <option value="네이버 코드니처">코드니처</option>
+              <option value="네이버 빠이러스">빠이러스</option>
+              <option value="네이버 명퉤">명퉤</option>
+              <option value="네이버 잠비에">잠비에</option>
+              <option value="네이버 미니멀룸">미니멀룸</option>
+              <option value="네이버 글로리핏">글로리핏</option>
+              <option value="네이버 그로우유즈">그로우뮤즈</option>
+              <option value="네이버 라스마">라이프스타일마트</option>
+            </select>
+          </div>
+          <div class="sa-filter-field">
+            <span class="sa-filter-field-label">비교 기준</span>
+            <select id="saCompareSelect" class="vendor-select" onchange="setSaCompare(this.value)">
+              <option value="prevPeriod">전일 대비</option>
+              <option value="prev7">직전 7일 대비</option>
+              <option value="prevMonth">전월 대비</option>
+            </select>
+          </div>
+          <button type="button" class="filter-reset-btn" onclick="resetSaFilters()">필터 초기화</button>
+        </div>
+        <div class="sa-filter-meta" id="saFilterMeta"></div>
+        <div class="sa-filter-note">캠페인·키워드·낭비 키워드 표는 일별 데이터가 없어 아래 "상세 성과"에서 월 단위로 따로 조회합니다.</div>
       </div>
 
       <div id="mktNaverSaEmpty" class="mkt-empty" style="display:none">
@@ -456,7 +616,7 @@
         <section class="panel">
           <div class="panel-head">
             <h2>네이버 SA 요약</h2>
-            <span class="panel-note">전 브랜드 합산 · 검색광고 자동연동</span>
+            <span class="panel-note">선택한 기간 · 8개 브랜드 합산 · 검색광고 자동연동</span>
           </div>
           <div class="kpi-row kpi-row-compact" id="mktNaverSaSummaryCards"></div>
         </section>
@@ -464,25 +624,27 @@
         <section class="panel">
           <div class="panel-head">
             <h2>브랜드별 성과</h2>
-            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · ROAS 400% 이상은 우수, 100% 미만(광고비&gt;매출)은 비효율로 표시</span>
+            <span class="panel-note">브랜드 카드를 클릭하면 아래 전체 영역이 그 브랜드 기준으로 필터링됩니다</span>
           </div>
-          <div class="insight-row" id="mktNaverSaBrandInsights"></div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th>브랜드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">CPA</th></tr>
-              </thead>
-              <tbody id="mktNaverSaChannelTable"></tbody>
-            </table>
-          </div>
+          <div class="brand-card-grid" id="saBrandCards"></div>
         </section>
 
         <section class="panel">
           <div class="panel-head">
-            <h2>일별 성과</h2>
-            <span class="panel-note">광고비 단위: 원 · 최근 날짜 순 · 브랜드별</span>
+            <h2 id="saBrandDetailTitle">선택 브랜드 핵심 지표</h2>
+            <span class="panel-note" id="saBrandDetailNote"></span>
           </div>
-          <div class="scroll-box">
+          <div class="kpi-row kpi-row-compact" id="saBrandDetailCards"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>일별 광고비 · 전환매출 · ROAS 추이</h2>
+            <span class="panel-note">막대: 광고비 · 실선: 전환매출/ROAS · 점선: 목표·최소 ROAS 기준선</span>
+          </div>
+          <div id="saTrendChartWrap"></div>
+          <button type="button" class="filter-reset-btn" id="saTrendToggleBtn" onclick="toggleSaDailyTable()" style="margin-top:12px;">일별 데이터 펼쳐보기 ▾</button>
+          <div class="scroll-box" id="saDailyTableWrap" style="display:none; margin-top:12px;">
             <table>
               <thead>
                 <tr><th>날짜</th><th>브랜드</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">전환매출</th><th class="num">ROAS</th></tr>
@@ -494,66 +656,86 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>캠페인별 성과</h2>
-            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · 전 브랜드</span>
+            <h2>오늘의 광고 진단</h2>
+            <span class="panel-note">확인·조정이 필요한 항목을 자동으로 정리했어요</span>
           </div>
           <div class="scroll-box">
             <table>
               <thead>
-                <tr><th>브랜드</th><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+                <tr><th>우선순위</th><th>브랜드</th><th>진단 내용</th><th>근거 수치</th><th>추천 조치</th><th>처리 상태</th></tr>
               </thead>
-              <tbody id="mktNaverSaCampaignTable"></tbody>
+              <tbody id="saDiagnosisTable"></tbody>
             </table>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-head">
-            <h2>키워드별 성과</h2>
-            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · 전 브랜드</span>
+            <div>
+              <h2>상세 성과</h2>
+              <span class="panel-note">월 단위 데이터 · 전 브랜드</span>
+            </div>
+            <select id="mktNaverSaMonthSelect" class="month-select"></select>
           </div>
-          <div class="insight-row" id="mktNaverSaKwInsights"></div>
-          <div class="filter-group" style="margin-bottom:10px;">
-            <select id="mktNaverSaKwBrand" class="vendor-select" onchange="setNaverSaKwBrand(this.value)"></select>
-            <select id="mktNaverSaKwCampaign" class="vendor-select" onchange="setNaverSaKwCampaign(this.value)"></select>
-            <input type="text" id="mktNaverSaKwSearch" class="vendor-select" placeholder="키워드 검색" style="max-width:160px;" oninput="setNaverSaKwSearch(this.value)">
-            <select id="mktNaverSaKwSort" class="vendor-select" onchange="setNaverSaKwSort(this.value)">
-              <option value="spend">광고비순</option>
-              <option value="conversions">전환순</option>
-              <option value="roas">ROAS순</option>
-              <option value="cpa">CPA순</option>
-            </select>
-            <button type="button" class="filter-reset-btn" onclick="resetNaverSaKwFilter()">필터 초기화</button>
+          <div class="filter-group" id="saDetailTabs" style="margin-bottom:14px;">
+            <button type="button" class="ad-type-filter-btn active" data-satab="campaign" onclick="setSaDetailTab('campaign')">캠페인 성과</button>
+            <button type="button" class="ad-type-filter-btn" data-satab="keyword" onclick="setSaDetailTab('keyword')">키워드 성과</button>
+            <button type="button" class="ad-type-filter-btn" data-satab="waste" onclick="setSaDetailTab('waste')">낭비 키워드</button>
           </div>
-          <div class="filter-group" id="mktNaverSaKwTabs" style="margin-bottom:10px;">
-            <button type="button" class="ad-type-filter-btn active" data-kwtab="all" onclick="setNaverSaKwStatus('all')">전체</button>
-            <button type="button" class="ad-type-filter-btn" data-kwtab="good" onclick="setNaverSaKwStatus('good')">성과 우수</button>
-            <button type="button" class="ad-type-filter-btn" data-kwtab="caution" onclick="setNaverSaKwStatus('caution')">주의</button>
-            <button type="button" class="ad-type-filter-btn" data-kwtab="waste" onclick="setNaverSaKwStatus('waste')">낭비 키워드</button>
-          </div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th>브랜드</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>캠페인</th><th>광고그룹</th></tr>
-              </thead>
-              <tbody id="mktNaverSaKeywordTable"></tbody>
-            </table>
-          </div>
-        </section>
 
-        <section class="panel" id="mktNaverSaWasteSection">
-          <div class="panel-head">
-            <h2>낭비 키워드</h2>
-            <span class="panel-note">클릭 10건 이상인데 전환이 0건인 키워드 · 광고비 많은 순 · 전 브랜드</span>
+          <div id="saDetailPanelCampaign">
+            <div class="scroll-box">
+              <table>
+                <thead>
+                  <tr><th></th><th>브랜드</th><th>캠페인</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">CPA</th><th>상태</th></tr>
+                </thead>
+                <tbody id="mktNaverSaCampaignTable"></tbody>
+              </table>
+            </div>
+            <button type="button" class="filter-reset-btn" id="saCampaignShowMoreBtn" onclick="toggleSaCampaignShowAll()" style="margin-top:10px; display:none;"></button>
           </div>
-          <div class="insight-row" id="mktNaverSaWasteInsights"></div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th>브랜드</th><th>키워드</th><th>캠페인</th><th>광고그룹</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th></tr>
-              </thead>
-              <tbody id="mktNaverSaWasteKeywordTable"></tbody>
-            </table>
+
+          <div id="saDetailPanelKeyword" style="display:none;">
+            <div class="insight-row" id="mktNaverSaKwInsights"></div>
+            <div class="filter-group" style="margin-bottom:10px;">
+              <select id="mktNaverSaKwBrand" class="vendor-select" onchange="setNaverSaKwBrand(this.value)"></select>
+              <select id="mktNaverSaKwCampaign" class="vendor-select" onchange="setNaverSaKwCampaign(this.value)"></select>
+              <input type="text" id="mktNaverSaKwSearch" class="vendor-select" placeholder="키워드 검색" style="max-width:160px;" oninput="setNaverSaKwSearch(this.value)">
+              <select id="mktNaverSaKwSort" class="vendor-select" onchange="setNaverSaKwSort(this.value)">
+                <option value="spend">광고비순</option>
+                <option value="conversions">전환순</option>
+                <option value="roas">ROAS순</option>
+                <option value="cpa">CPA순</option>
+              </select>
+              <button type="button" class="filter-reset-btn" onclick="resetNaverSaKwFilter()">필터 초기화</button>
+            </div>
+            <div class="filter-group" id="mktNaverSaKwTabs" style="margin-bottom:10px;">
+              <button type="button" class="ad-type-filter-btn active" data-kwtab="all" onclick="setNaverSaKwStatus('all')">전체</button>
+              <button type="button" class="ad-type-filter-btn" data-kwtab="good" onclick="setNaverSaKwStatus('good')">성과 우수</button>
+              <button type="button" class="ad-type-filter-btn" data-kwtab="caution" onclick="setNaverSaKwStatus('caution')">주의</button>
+              <button type="button" class="ad-type-filter-btn" data-kwtab="waste" onclick="setNaverSaKwStatus('waste')">낭비 키워드</button>
+            </div>
+            <div class="scroll-box">
+              <table>
+                <thead>
+                  <tr><th>브랜드</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>캠페인</th><th>광고그룹</th></tr>
+                </thead>
+                <tbody id="mktNaverSaKeywordTable"></tbody>
+              </table>
+            </div>
+            <button type="button" class="filter-reset-btn" id="saKeywordShowMoreBtn" onclick="toggleSaKeywordShowAll()" style="margin-top:10px; display:none;"></button>
+          </div>
+
+          <div id="saDetailPanelWaste" style="display:none;">
+            <div class="insight-row" id="mktNaverSaWasteInsights"></div>
+            <div class="scroll-box">
+              <table>
+                <thead>
+                  <tr><th>브랜드</th><th>키워드</th><th>캠페인</th><th>광고그룹</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>추천 조치</th><th>처리 상태</th></tr>
+                </thead>
+                <tbody id="mktNaverSaWasteKeywordTable"></tbody>
+              </table>
+            </div>
           </div>
         </section>
       </div>
@@ -1788,11 +1970,165 @@
     return MARKETING_BRAND_TO_SALES_BRAND[channel] || String(channel).replace(/^네이버\s*/, '');
   }
 
-  function renderMarketingNaverSaView() {
-    const rows = allMarketingRows.filter((r) => r.channel && r.channel.startsWith('네이버'));
-    const months = Array.from(new Set(rows.map((r) => r.month))).sort();
+  // ==================== 네이버SA 대시보드: 공통 유틸(기간/비교/집계/ROAS/CPA) ====================
+  const SA_CARD_BRANDS = [
+    { channel: '네이버 코드니처', name: '코드니처' },
+    { channel: '네이버 빠이러스', name: '빠이러스' },
+    { channel: '네이버 명퉤', name: '명퉤' },
+    { channel: '네이버 잠비에', name: '잠비에' },
+    { channel: '네이버 미니멀룸', name: '미니멀룸' },
+    { channel: '네이버 글로리핏', name: '글로리핏' },
+    { channel: '네이버 그로우유즈', name: '그로우뮤즈' },
+    { channel: '네이버 라스마', name: '라이프스타일마트' },
+  ];
+  const SA_ROAS_TARGET_DEFAULT = MARKETING_ROAS_TARGET; // 400 — 전 브랜드 공통 기본 목표 ROAS
+  const SA_ROAS_MIN_DEFAULT = 100; // 손익분기(광고비=매출) — 전 브랜드 공통 기본 최소 ROAS
+  // 브랜드마다 다른 목표/최소 ROAS가 필요하면 여기에 채널명으로 추가하세요. 없는 브랜드는 위 기본값을 씁니다.
+  // 예: '네이버 미니멀룸': { target: 500, min: 150 },
+  const BRAND_ROAS_GOALS = {};
+  function brandGoal(channel) {
+    const g = BRAND_ROAS_GOALS[channel];
+    return { target: (g && g.target) || SA_ROAS_TARGET_DEFAULT, min: (g && g.min) || SA_ROAS_MIN_DEFAULT };
+  }
 
-    if (!months.length) {
+  function roasOf(r) { return r.spend > 0 ? (r.revenue / r.spend * 100) : 0; }
+  function cpaOf(r) { return r.conversions > 0 ? (r.spend / r.conversions) : 0; }
+  function ctrOf(r) { return r.impressions > 0 ? (r.clicks / r.impressions * 100) : 0; }
+  function cpcOf(r) { return r.clicks > 0 ? (r.spend / r.clicks) : 0; }
+
+  function sumRows(rows) {
+    return rows.reduce((acc, r) => ({
+      spend: acc.spend + Number(r.spend),
+      impressions: acc.impressions + Number(r.impressions),
+      clicks: acc.clicks + Number(r.clicks),
+      conversions: acc.conversions + Number(r.conversions),
+      revenue: acc.revenue + Number(r.revenue),
+    }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 });
+  }
+
+  function classifyBrandStatus(channel, agg) {
+    if (!agg || agg.spend <= 0) return 'no-data';
+    const { target, min } = brandGoal(channel);
+    const roas = roasOf(agg);
+    if (roas >= target) return 'good';
+    if (roas >= min) return 'caution';
+    return 'inefficient';
+  }
+
+  // 캠페인/키워드 행 성과 상태 판정을 한 곳에서 공유 (waste > no-revenue > good > caution > normal 순으로 판정)
+  function classifySaRowStatus(row, ctx) {
+    if (row.clicks >= WASTE_KEYWORD_MIN_CLICKS && row.conversions === 0) return 'waste';
+    if (row.conversions > 0 && row.revenue === 0) return 'no-revenue'; // 전환은 있는데 매출이 0 — 낭비/우수 오분류 방지
+    if (row.conversions > 0 && (row.roas >= ctx.target || (ctx.avgCpaConverting > 0 && row.cpa <= ctx.avgCpaConverting))) return 'good';
+    if (ctx.avgSpendAll > 0 && row.spend >= ctx.avgSpendAll && (row.conversions === 0 || row.roas < ctx.target)) return 'caution';
+    return 'normal';
+  }
+  function saRowClass(status) {
+    return status === 'good' ? 'row-good' : status === 'caution' ? 'row-caution' : status === 'waste' ? 'row-waste' : status === 'no-revenue' ? 'row-no-revenue' : '';
+  }
+
+  function dateStr(d) { return d.toISOString().slice(0, 10); }
+  function addDays(dateISO, n) {
+    const d = new Date(dateISO + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return dateStr(d);
+  }
+  function todayISO() { return dateStr(new Date()); }
+
+  function getPeriodRange(period, customFrom, customTo) {
+    const today = todayISO();
+    if (period === 'today') return { from: today, to: today };
+    if (period === 'yesterday') { const y = addDays(today, -1); return { from: y, to: y }; }
+    if (period === 'last7') return { from: addDays(today, -6), to: today };
+    if (period === 'thisMonth') return { from: today.slice(0, 8) + '01', to: today };
+    if (period === 'lastMonth') {
+      const d = new Date(today + 'T00:00:00Z');
+      d.setUTCDate(1);
+      d.setUTCDate(0); // 이번 달 1일에서 하루 빼면 지난달 마지막날
+      const lastDay = dateStr(d);
+      return { from: lastDay.slice(0, 8) + '01', to: lastDay };
+    }
+    if (period === 'custom') return { from: customFrom || today, to: customTo || today };
+    return { from: today, to: today };
+  }
+  function daysBetween(from, to) {
+    const a = new Date(from + 'T00:00:00Z'), b = new Date(to + 'T00:00:00Z');
+    return Math.round((b - a) / 86400000) + 1;
+  }
+  function getComparisonRange(compareBasis, from, to) {
+    if (compareBasis === 'prev7') return { from: addDays(from, -7), to: addDays(from, -1) };
+    if (compareBasis === 'prevMonth') {
+      const shift = (d) => { const dt = new Date(d + 'T00:00:00Z'); dt.setUTCMonth(dt.getUTCMonth() - 1); return dateStr(dt); };
+      return { from: shift(from), to: shift(to) };
+    }
+    const len = daysBetween(from, to);
+    return { from: addDays(from, -len), to: addDays(to, -len) };
+  }
+  function currentSaRange() {
+    return saFilter.period === 'custom'
+      ? getPeriodRange('custom', saFilter.customFrom, saFilter.customTo)
+      : getPeriodRange(saFilter.period);
+  }
+  function periodLabel(period, from, to) {
+    const map = { today: '오늘', yesterday: '어제', last7: '최근 7일', thisMonth: '이번 달', lastMonth: '지난달', custom: '직접 설정' };
+    return `${map[period] || period} (${from}${from !== to ? ' ~ ' + to : ''})`;
+  }
+  function compareLabel(c) {
+    return c === 'prev7' ? '직전 7일 대비' : c === 'prevMonth' ? '전월 대비' : '전일 대비';
+  }
+  function formatUpdatedAt(iso) {
+    try { return new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return iso; }
+  }
+
+  function saDailyRowsForChannel(channel, from, to) {
+    return allMarketingDailyRows.filter((r) => r.channel === channel && r.date >= from && r.date <= to);
+  }
+  function saDailyRowsForBrands(channels, from, to) {
+    return allMarketingDailyRows.filter((r) => channels.includes(r.channel) && r.date >= from && r.date <= to);
+  }
+
+  // unit: 'pp'(이미 %인 지표의 %p 차이), 'won'(금액, 변화율로 표시), 'pct'(건수 등, 변화율로 표시)
+  // neutral: true면 방향과 무관하게 중립색 — 광고비·CPA처럼 "많다/적다"만으론 좋고나쁨을 못 가르는 지표에 사용
+  function deltaLine(cur, prev, opts) {
+    opts = opts || {};
+    if (prev === 0 && cur === 0) return '';
+    const diff = cur - prev;
+    const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '－';
+    let text;
+    if (opts.unit === 'pp') {
+      text = `${arrow} ${Math.abs(diff).toFixed(0)}%p`;
+    } else if (prev === 0) {
+      text = cur > 0 ? '신규' : '－';
+    } else {
+      const pct = (diff / Math.abs(prev)) * 100;
+      text = `${arrow} ${Math.abs(pct).toFixed(1)}%`;
+    }
+    const colorClass = opts.neutral ? 'delta-neutral' : (diff > 0 ? 'delta-up' : diff < 0 ? 'delta-down' : 'delta-flat');
+    return `<span class="${colorClass}">${text}</span>`;
+  }
+  function saKpiCard(label, value, deltaHtml, extraClass) {
+    return `
+      <div class="kpi-card kpi-card-compact">
+        <div class="kpi-label">${escapeAttr(label)}</div>
+        <div class="kpi-value${extraClass ? ' ' + extraClass : ''}">${value}</div>
+        ${deltaHtml ? `<div class="kpi-delta">${deltaHtml}</div>` : ''}
+      </div>
+    `;
+  }
+
+  // ==================== 네이버SA 대시보드: 상태 ====================
+  let saFilter = { period: 'thisMonth', customFrom: '', customTo: '', brand: '', compare: 'prevPeriod' };
+  let saTrendDays = [];
+  let saCampaignAllRows = [];
+  let saCampaignShowAll = false;
+  let saKeywordShowAll = false;
+  let saDetailTabState = 'campaign';
+
+  function renderMarketingNaverSaView() {
+    const hasAnyData = allMarketingDailyRows.some((r) => r.channel && r.channel.startsWith('네이버'))
+      || allMarketingRows.some((r) => r.channel && r.channel.startsWith('네이버'));
+    if (!hasAnyData) {
       document.getElementById('mktNaverSaSubtitle').textContent = '연동 대기 중';
       document.getElementById('mktNaverSaEmpty').style.display = '';
       document.getElementById('mktNaverSaContent').style.display = 'none';
@@ -1801,6 +2137,10 @@
     document.getElementById('mktNaverSaEmpty').style.display = 'none';
     document.getElementById('mktNaverSaContent').style.display = '';
 
+    // 상세 성과(캠페인/키워드/낭비)는 월 단위 데이터라 별도 월 선택으로 관리한다.
+    const months = Array.from(new Set(
+      allMarketingRows.filter((r) => r.channel && r.channel.startsWith('네이버')).map((r) => r.month)
+    )).sort();
     const monthSelect = document.getElementById('mktNaverSaMonthSelect');
     const prevSelected = monthSelect.value;
     monthSelect.innerHTML = months.map((m) => {
@@ -1809,243 +2149,461 @@
     }).join('');
     const monthToShow = months.includes(prevSelected) ? prevSelected : months[months.length - 1];
     monthSelect.value = monthToShow;
-    monthSelect.onchange = () => renderMarketingNaverSaMonth(monthSelect.value);
+    monthSelect.onchange = () => renderSaDetailMonth(monthSelect.value);
 
-    renderMarketingNaverSaMonth(monthToShow);
+    if (monthToShow) renderSaDetailMonth(monthToShow);
+    renderSaDashboard();
   }
 
-  function renderMarketingNaverSaMonth(monthStr) {
-    const monthRows = allMarketingRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr);
-    const channels = Array.from(new Set(monthRows.map((r) => r.channel))).sort();
+  function renderSaDashboard() {
+    const { from, to } = currentSaRange();
+    const cmp = getComparisonRange(saFilter.compare, from, to);
+    const brandChannels = SA_CARD_BRANDS.map((b) => b.channel);
+    const curRows = saDailyRowsForBrands(brandChannels, from, to);
+    const cmpRows = saDailyRowsForBrands(brandChannels, cmp.from, cmp.to);
 
-    // ---- 브랜드별 상세 지표 (+ 합계) : 광고비·노출·클릭·전환·매출이 전부 0인 브랜드는 표시하지 않는다 ----
-    const channelSummaries = channels.map((channel) => {
-      const cRows = monthRows.filter((r) => r.channel === channel);
-      return {
-        brandName: naverSaBrandName(channel),
-        spend: cRows.reduce((s, r) => s + Number(r.spend), 0),
-        impressions: cRows.reduce((s, r) => s + Number(r.impressions), 0),
-        clicks: cRows.reduce((s, r) => s + Number(r.clicks), 0),
-        conversions: cRows.reduce((s, r) => s + Number(r.conversions), 0),
-        revenue: cRows.reduce((s, r) => s + Number(r.revenue), 0),
-      };
-    }).filter((r) => r.spend > 0 || r.impressions > 0 || r.clicks > 0 || r.conversions > 0 || r.revenue > 0);
-
-    document.getElementById('mktNaverSaSubtitle').textContent =
-      monthStr + ' · 브랜드 ' + channelSummaries.length.toLocaleString('ko-KR') + '개';
-
-    const grandTotal = channelSummaries.reduce((acc, r) => ({
-      spend: acc.spend + r.spend,
-      impressions: acc.impressions + r.impressions,
-      clicks: acc.clicks + r.clicks,
-      conversions: acc.conversions + r.conversions,
-      revenue: acc.revenue + r.revenue,
-    }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 });
-
-    // ---- 상단 SA 요약 카드 (광고비/전환매출/ROAS/클릭/전환/CPA) ----
-    const grandRoas = grandTotal.spend > 0 ? (grandTotal.revenue / grandTotal.spend * 100) : 0;
-    const grandCpa = grandTotal.conversions > 0 ? (grandTotal.spend / grandTotal.conversions) : 0;
-    document.getElementById('mktNaverSaSummaryCards').innerHTML = `
-      <div class="kpi-card kpi-card-compact">
-        <div class="kpi-label">광고비</div>
-        <div class="kpi-value mkt-value">${won(Math.round(grandTotal.spend))}</div>
-      </div>
-      <div class="kpi-card kpi-card-compact">
-        <div class="kpi-label">전환매출</div>
-        <div class="kpi-value mkt-value">${won(Math.round(grandTotal.revenue))}</div>
-      </div>
-      <div class="kpi-card kpi-card-compact">
-        <div class="kpi-label">ROAS</div>
-        <div class="kpi-value${grandRoas >= MARKETING_ROAS_TARGET ? ' kpi-value-good' : ''}">${grandRoas.toFixed(0)}%</div>
-      </div>
-      <div class="kpi-card kpi-card-compact">
-        <div class="kpi-label">클릭</div>
-        <div class="kpi-value">${grandTotal.clicks.toLocaleString('ko-KR')}</div>
-      </div>
-      <div class="kpi-card kpi-card-compact">
-        <div class="kpi-label">전환</div>
-        <div class="kpi-value">${grandTotal.conversions.toLocaleString('ko-KR')}</div>
-      </div>
-      <div class="kpi-card kpi-card-compact">
-        <div class="kpi-label">CPA</div>
-        <div class="kpi-value">${grandTotal.conversions > 0 ? won(Math.round(grandCpa)) : '-'}</div>
-      </div>
+    const allNaverDaily = allMarketingDailyRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.updated_at);
+    const lastUpdated = allNaverDaily.length
+      ? allNaverDaily.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), allNaverDaily[0].updated_at)
+      : null;
+    document.getElementById('saFilterMeta').innerHTML = `
+      <span class="sa-filter-meta-item">📅 ${escapeAttr(periodLabel(saFilter.period, from, to))}</span>
+      <span class="sa-filter-meta-item">비교: ${escapeAttr(compareLabel(saFilter.compare))} (${cmp.from} ~ ${cmp.to})</span>
+      ${lastUpdated ? `<span class="sa-filter-meta-item">마지막 업데이트: ${escapeAttr(formatUpdatedAt(lastUpdated))}</span>` : ''}
     `;
 
-    // ---- 브랜드별 성과 표 (+ 우수/비효율 시각 구분, 상단 랭킹 인사이트) ----
-    const brandsWithRoas = channelSummaries.map((r) => ({
-      ...r,
-      roas: r.spend > 0 ? (r.revenue / r.spend * 100) : 0,
-    }));
-    const topByKey = (arr, key) => arr.length ? arr.slice().sort((a, b) => b[key] - a[key])[0] : null;
-    const topSpendBrand = topByKey(brandsWithRoas, 'spend');
-    const topRevenueBrand = topByKey(brandsWithRoas, 'revenue');
-    const topRoasBrand = topByKey(brandsWithRoas.filter((r) => r.spend > 0), 'roas');
-    const topConvBrand = topByKey(brandsWithRoas, 'conversions');
-    document.getElementById('mktNaverSaBrandInsights').innerHTML = channelSummaries.length ? `
-      <div class="insight-chip">
-        <div class="insight-chip-label">광고비 1위 브랜드</div>
-        <div class="insight-chip-value">${escapeAttr(topSpendBrand.brandName)}</div>
-        <div class="insight-chip-sub">${won(Math.round(topSpendBrand.spend))}</div>
-      </div>
-      <div class="insight-chip">
-        <div class="insight-chip-label">매출 1위 브랜드</div>
-        <div class="insight-chip-value">${escapeAttr(topRevenueBrand.brandName)}</div>
-        <div class="insight-chip-sub">${won(Math.round(topRevenueBrand.revenue))}</div>
-      </div>
-      <div class="insight-chip">
-        <div class="insight-chip-label">ROAS 1위 브랜드</div>
-        <div class="insight-chip-value">${topRoasBrand ? escapeAttr(topRoasBrand.brandName) : '-'}</div>
-        <div class="insight-chip-sub">${topRoasBrand ? topRoasBrand.roas.toFixed(0) + '%' : ''}</div>
-      </div>
-      <div class="insight-chip">
-        <div class="insight-chip-label">전환 1위 브랜드</div>
-        <div class="insight-chip-value">${escapeAttr(topConvBrand.brandName)}</div>
-        <div class="insight-chip-sub">${topConvBrand.conversions.toLocaleString('ko-KR')}건</div>
-      </div>
-    ` : '';
+    document.getElementById('mktNaverSaSubtitle').textContent =
+      `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS.length}개 중 데이터 있는 브랜드 기준`;
 
-    const summaryRowHtml = (r, isTotal) => {
-      const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100) : 0;
-      const cpc = r.clicks > 0 ? (r.spend / r.clicks) : 0;
-      const cpa = r.conversions > 0 ? (r.spend / r.conversions) : 0;
-      const roas = r.spend > 0 ? (r.revenue / r.spend * 100) : 0;
-      let rowClass = '';
-      let dot = '';
-      if (!isTotal && r.spend > 0) {
-        if (roas >= MARKETING_ROAS_TARGET) { rowClass = 'row-good'; dot = '<span class="status-dot good"></span>'; }
-        else if (roas < 100) { rowClass = 'row-caution'; dot = '<span class="status-dot caution"></span>'; }
-      }
+    renderSaSummaryCards(curRows, cmpRows);
+    renderSaBrandCards(from, to, cmp);
+    renderSaBrandDetail(from, to, cmp);
+    renderSaTrendChart(from, to);
+    renderSaDiagnosis(from, to);
+    if (document.getElementById('saDailyTableWrap').style.display !== 'none') renderSaDailyTable();
+  }
+
+  function renderSaSummaryCards(curRows, cmpRows) {
+    const cur = sumRows(curRows);
+    const cmp = sumRows(cmpRows);
+    const curRoas = roasOf(cur), cmpRoas = roasOf(cmp);
+    const curCpa = cpaOf(cur), cmpCpa = cpaOf(cmp);
+    document.getElementById('mktNaverSaSummaryCards').innerHTML = [
+      saKpiCard('광고비', won(Math.round(cur.spend)), deltaLine(cur.spend, cmp.spend, { unit: 'won', neutral: true })),
+      saKpiCard('전환매출', won(Math.round(cur.revenue)), deltaLine(cur.revenue, cmp.revenue, { unit: 'won' })),
+      saKpiCard('ROAS', curRoas.toFixed(0) + '%', deltaLine(curRoas, cmpRoas, { unit: 'pp' }), curRoas >= SA_ROAS_TARGET_DEFAULT ? 'kpi-value-good' : ''),
+      saKpiCard('클릭', cur.clicks.toLocaleString('ko-KR'), deltaLine(cur.clicks, cmp.clicks, { unit: 'pct' })),
+      saKpiCard('전환', cur.conversions.toLocaleString('ko-KR'), deltaLine(cur.conversions, cmp.conversions, { unit: 'pct' })),
+      saKpiCard('CPA', cur.conversions > 0 ? won(Math.round(curCpa)) : '-', (cur.conversions > 0 && cmp.conversions > 0) ? deltaLine(curCpa, cmpCpa, { unit: 'won', neutral: true }) : ''),
+    ].join('');
+  }
+
+  function renderSaBrandCards(from, to, cmp) {
+    const statusLabel = { good: '우수', caution: '주의', inefficient: '비효율', 'no-data': '데이터 없음' };
+    document.getElementById('saBrandCards').innerHTML = SA_CARD_BRANDS.map((b) => {
+      const curAgg = sumRows(saDailyRowsForChannel(b.channel, from, to));
+      const cmpAgg = sumRows(saDailyRowsForChannel(b.channel, cmp.from, cmp.to));
+      const status = classifyBrandStatus(b.channel, curAgg);
+      const roas = roasOf(curAgg), cmpRoas = roasOf(cmpAgg);
+      const isSelected = saFilter.brand === b.channel;
       return `
-        <tr class="${isTotal ? 'channel-total-row' : rowClass}">
-          <td>${dot}${escapeAttr(r.brandName)}</td>
-          <td class="num">${won(Math.round(r.spend))}</td>
-          <td class="num">${won(Math.round(r.revenue))}</td>
-          <td class="num">${roas.toFixed(0)}%</td>
-          <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
-          <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
-          <td class="num">${ctr.toFixed(2)}%</td>
-          <td class="num">${won(Math.round(cpc))}</td>
-          <td class="num">${r.conversions > 0 ? won(Math.round(cpa)) : '-'}</td>
+        <div class="brand-card status-${status}${isSelected ? ' selected' : ''}" onclick="toggleSaBrand('${escapeAttr(b.channel)}')">
+          <div class="brand-card-head">
+            <span class="brand-card-name">${escapeAttr(b.name)}</span>
+            <span class="brand-card-status status-${status}">${statusLabel[status]}</span>
+          </div>
+          ${status === 'no-data' ? `
+            <div class="brand-card-empty">이 기간 데이터가 없어요.</div>
+          ` : `
+            <div class="brand-card-metric"><span class="brand-card-metric-label">전환매출</span><span class="brand-card-metric-value">${won(Math.round(curAgg.revenue))}</span></div>
+            <div class="brand-card-metric"><span class="brand-card-metric-label">광고비</span><span class="brand-card-metric-value">${won(Math.round(curAgg.spend))}</span></div>
+            <div class="brand-card-metric"><span class="brand-card-metric-label">ROAS</span><span class="brand-card-metric-value">${roas.toFixed(0)}%</span></div>
+            <div class="brand-card-metric"><span class="brand-card-metric-label">전환</span><span class="brand-card-metric-value">${curAgg.conversions.toLocaleString('ko-KR')}건</span></div>
+            <div class="brand-card-delta">${escapeAttr(compareLabel(saFilter.compare))} ROAS ${deltaLine(roas, cmpRoas, { unit: 'pp' })}</div>
+          `}
+          <div class="brand-card-link">상세보기 →</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function toggleSaBrand(channel) {
+    saFilter.brand = saFilter.brand === channel ? '' : channel;
+    document.getElementById('saBrandSelect').value = saFilter.brand;
+    renderSaDashboard();
+  }
+  function setSaBrand(value) {
+    saFilter.brand = value;
+    renderSaDashboard();
+  }
+  function setSaPeriod(value) {
+    saFilter.period = value;
+    document.getElementById('saCustomDateWrap').style.display = value === 'custom' ? '' : 'none';
+    if (value === 'custom' && !saFilter.customFrom) {
+      const r = getPeriodRange('thisMonth');
+      saFilter.customFrom = r.from; saFilter.customTo = r.to;
+      document.getElementById('saCustomFrom').value = r.from;
+      document.getElementById('saCustomTo').value = r.to;
+    }
+    renderSaDashboard();
+  }
+  function setSaCustomRange() {
+    let from = document.getElementById('saCustomFrom').value;
+    let to = document.getElementById('saCustomTo').value;
+    if (from && to && from > to) { const t = from; from = to; to = t; }
+    saFilter.customFrom = from; saFilter.customTo = to;
+    document.getElementById('saCustomFrom').value = from;
+    document.getElementById('saCustomTo').value = to;
+    renderSaDashboard();
+  }
+  function setSaCompare(value) {
+    saFilter.compare = value;
+    renderSaDashboard();
+  }
+  function resetSaFilters() {
+    saFilter = { period: 'thisMonth', customFrom: '', customTo: '', brand: '', compare: 'prevPeriod' };
+    document.getElementById('saPeriodSelect').value = 'thisMonth';
+    document.getElementById('saCustomDateWrap').style.display = 'none';
+    document.getElementById('saBrandSelect').value = '';
+    document.getElementById('saCompareSelect').value = 'prevPeriod';
+    renderSaDashboard();
+  }
+
+  function renderSaBrandDetail(from, to, cmp) {
+    const channels = saFilter.brand ? [saFilter.brand] : SA_CARD_BRANDS.map((b) => b.channel);
+    const label = saFilter.brand ? naverSaBrandName(saFilter.brand) : '전체 브랜드';
+    document.getElementById('saBrandDetailTitle').textContent = `${label} 핵심 지표`;
+    document.getElementById('saBrandDetailNote').textContent = periodLabel(saFilter.period, from, to);
+
+    const cur = sumRows(saDailyRowsForBrands(channels, from, to));
+    const cmpAgg = sumRows(saDailyRowsForBrands(channels, cmp.from, cmp.to));
+    const totalAllBrands = sumRows(saDailyRowsForBrands(SA_CARD_BRANDS.map((b) => b.channel), from, to));
+    const cmpTotalAllBrands = sumRows(saDailyRowsForBrands(SA_CARD_BRANDS.map((b) => b.channel), cmp.from, cmp.to));
+    const roas = roasOf(cur), cmpRoas = roasOf(cmpAgg);
+    const cpa = cpaOf(cur), cmpCpa = cpaOf(cmpAgg);
+    const spendShare = totalAllBrands.spend > 0 ? (cur.spend / totalAllBrands.spend * 100) : 0;
+    const cmpSpendShare = cmpTotalAllBrands.spend > 0 ? (cmpAgg.spend / cmpTotalAllBrands.spend * 100) : 0;
+    const goal = saFilter.brand ? brandGoal(saFilter.brand) : { target: SA_ROAS_TARGET_DEFAULT, min: SA_ROAS_MIN_DEFAULT };
+    const goalDeltaPP = roas - goal.target;
+
+    document.getElementById('saBrandDetailCards').innerHTML = [
+      saKpiCard('광고비', won(Math.round(cur.spend)), deltaLine(cur.spend, cmpAgg.spend, { unit: 'won', neutral: true })),
+      saKpiCard('전환매출', won(Math.round(cur.revenue)), deltaLine(cur.revenue, cmpAgg.revenue, { unit: 'won' })),
+      saKpiCard('ROAS', roas.toFixed(0) + '%',
+        `${deltaLine(roas, cmpRoas, { unit: 'pp' })}<div class="kpi-delta-sub">목표 대비 ${goalDeltaPP >= 0 ? '+' : ''}${goalDeltaPP.toFixed(0)}%p</div>`,
+        roas >= goal.target ? 'kpi-value-good' : (roas < goal.min ? 'kpi-value-bad' : '')),
+      saKpiCard('전환', cur.conversions.toLocaleString('ko-KR') + '건', deltaLine(cur.conversions, cmpAgg.conversions, { unit: 'pct' })),
+      saKpiCard('CPA', cur.conversions > 0 ? won(Math.round(cpa)) : '-', (cur.conversions > 0 && cmpAgg.conversions > 0) ? deltaLine(cpa, cmpCpa, { unit: 'won', neutral: true }) : ''),
+      saKpiCard('광고비 비중', spendShare.toFixed(1) + '%', deltaLine(spendShare, cmpSpendShare, { unit: 'pp' })),
+    ].join('');
+  }
+
+  // ==================== 일별 추이 그래프(SVG, 외부 라이브러리 없이 자체 구현) ====================
+  function renderSaTrendChart(from, to) {
+    const channels = saFilter.brand ? [saFilter.brand] : SA_CARD_BRANDS.map((b) => b.channel);
+    const rows = saDailyRowsForBrands(channels, from, to);
+    const byDate = new Map();
+    for (const r of rows) {
+      const cur = byDate.get(r.date) || { date: r.date, spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
+      cur.spend += Number(r.spend); cur.impressions += Number(r.impressions); cur.clicks += Number(r.clicks);
+      cur.conversions += Number(r.conversions); cur.revenue += Number(r.revenue);
+      byDate.set(r.date, cur);
+    }
+    const days = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) {
+      const agg = byDate.get(d) || { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
+      days.push({ ...agg, roas: roasOf(agg), cpa: cpaOf(agg) });
+    }
+    saTrendDays = days;
+
+    if (!days.length) {
+      document.getElementById('saTrendChartWrap').innerHTML = '<div class="mkt-empty">선택한 기간의 데이터가 없습니다.</div>';
+      return;
+    }
+
+    const goal = saFilter.brand ? brandGoal(saFilter.brand) : { target: SA_ROAS_TARGET_DEFAULT, min: SA_ROAS_MIN_DEFAULT };
+    const maxSpend = Math.max(1, ...days.map((d) => d.spend));
+    const maxRevenue = Math.max(1, ...days.map((d) => d.revenue));
+    const maxRoas = Math.max(goal.target, ...days.map((d) => d.roas)) * 1.15;
+    const W = 900, H = 260, padL = 8, padR = 8, padT = 12, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const n = days.length;
+    const barW = Math.max(2, (plotW / n) * 0.5);
+    const xAt = (i) => padL + (plotW / n) * (i + 0.5);
+    const yForSpend = (v) => padT + plotH - (v / maxSpend) * plotH * 0.65;
+    const yForRoas = (v) => padT + plotH - (v / maxRoas) * plotH;
+    const yForRevenue = (v) => padT + plotH - (v / maxRevenue) * plotH * 0.9;
+
+    const bars = days.map((d, i) => {
+      const x = xAt(i) - barW / 2;
+      const y = yForSpend(d.spend);
+      const h = Math.max(0, padT + plotH - y);
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2" class="sa-chart-bar"></rect>`;
+    }).join('');
+    const roasPoints = days.map((d, i) => `${xAt(i).toFixed(1)},${yForRoas(d.roas).toFixed(1)}`).join(' ');
+    const revPoints = days.map((d, i) => `${xAt(i).toFixed(1)},${yForRevenue(d.revenue).toFixed(1)}`).join(' ');
+    const targetY = yForRoas(goal.target).toFixed(1);
+    const minY = yForRoas(goal.min).toFixed(1);
+    const hoverTargets = days.map((d, i) => `
+      <rect class="sa-chart-hover" x="${(padL + (plotW / n) * i).toFixed(1)}" y="0" width="${(plotW / n).toFixed(1)}" height="${H}" fill="transparent"
+        onmouseenter="showSaChartTooltip(event, ${i})" onmouseleave="hideSaChartTooltip()"></rect>
+    `).join('');
+    const xLabels = days.map((d, i) => {
+      if (n > 14 && i % Math.ceil(n / 10) !== 0) return '';
+      return `<text class="sa-chart-x-label" x="${xAt(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${d.date.slice(5)}</text>`;
+    }).join('');
+
+    document.getElementById('saTrendChartWrap').innerHTML = `
+      <div class="chart-legend">
+        <span class="legend-item"><span class="legend-swatch" style="background:#cbd5e1;"></span>광고비</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#2563eb;"></span>전환매출</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#dc2626;"></span>ROAS</span>
+        <span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #16a34a; background:none;"></span>목표 ROAS ${goal.target}%</span>
+        <span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #94a3b8; background:none;"></span>최소 ROAS ${goal.min}%</span>
+      </div>
+      <div class="sa-chart-outer">
+        <svg viewBox="0 0 ${W} ${H}" class="sa-chart-svg" preserveAspectRatio="none">
+          <line x1="${padL}" y1="${targetY}" x2="${W - padR}" y2="${targetY}" class="sa-chart-goal-line"></line>
+          <line x1="${padL}" y1="${minY}" x2="${W - padR}" y2="${minY}" class="sa-chart-min-line"></line>
+          ${bars}
+          <polyline points="${revPoints}" class="sa-chart-line-revenue"></polyline>
+          <polyline points="${roasPoints}" class="sa-chart-line-roas"></polyline>
+          ${hoverTargets}
+          ${xLabels}
+        </svg>
+        <div class="sa-chart-tooltip" id="saChartTooltip" style="display:none;"></div>
+      </div>
+    `;
+  }
+
+  function showSaChartTooltip(evt, i) {
+    const d = saTrendDays[i];
+    if (!d) return;
+    const tip = document.getElementById('saChartTooltip');
+    tip.innerHTML = `
+      <div class="sa-chart-tooltip-date">${escapeAttr(d.date)}</div>
+      <div>광고비 ${won(Math.round(d.spend))}</div>
+      <div>전환매출 ${won(Math.round(d.revenue))}</div>
+      <div>ROAS ${d.roas.toFixed(0)}%</div>
+      <div>전환 ${d.conversions.toLocaleString('ko-KR')}건</div>
+      <div>CPA ${d.conversions > 0 ? won(Math.round(d.cpa)) : '-'}</div>
+    `;
+    const wrap = evt.currentTarget.closest('.sa-chart-outer');
+    const wrapRect = wrap.getBoundingClientRect();
+    const left = evt.clientX - wrapRect.left;
+    tip.style.left = Math.min(Math.max(left, 60), wrapRect.width - 60) + 'px';
+    tip.style.display = 'block';
+  }
+  function hideSaChartTooltip() {
+    document.getElementById('saChartTooltip').style.display = 'none';
+  }
+
+  function toggleSaDailyTable() {
+    const wrap = document.getElementById('saDailyTableWrap');
+    const btn = document.getElementById('saTrendToggleBtn');
+    const show = wrap.style.display === 'none';
+    wrap.style.display = show ? '' : 'none';
+    btn.textContent = show ? '일별 데이터 접기 ▴' : '일별 데이터 펼쳐보기 ▾';
+    if (show) renderSaDailyTable();
+  }
+
+  function renderSaDailyTable() {
+    const { from, to } = currentSaRange();
+    const channels = saFilter.brand ? [saFilter.brand] : SA_CARD_BRANDS.map((b) => b.channel);
+    const rows = saDailyRowsForBrands(channels, from, to).slice().sort((a, b) => b.date === a.date
+      ? naverSaBrandName(a.channel).localeCompare(naverSaBrandName(b.channel))
+      : b.date.localeCompare(a.date));
+    document.getElementById('mktNaverSaDailyTable').innerHTML = rows.length ? rows.map((r) => {
+      const spend = Number(r.spend), impressions = Number(r.impressions), clicks = Number(r.clicks),
+        conversions = Number(r.conversions), revenue = Number(r.revenue);
+      return `
+        <tr>
+          <td>${r.date}</td>
+          <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
+          <td class="num">${won(spend)}</td>
+          <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+          <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+          <td class="num">${ctrOf({ impressions, clicks }).toFixed(2)}%</td>
+          <td class="num">${won(Math.round(cpcOf({ clicks, spend })))}</td>
+          <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(revenue)}</td>
+          <td class="num">${roasOf({ spend, revenue }).toFixed(0)}%</td>
         </tr>
       `;
-    };
+    }).join('') : '<tr><td colspan="10" class="mkt-empty-row">선택한 기간의 데이터가 없습니다.</td></tr>';
+  }
 
-    document.getElementById('mktNaverSaChannelTable').innerHTML = channelSummaries.length
-      ? channelSummaries.map((r) => summaryRowHtml(r, false)).join('') + summaryRowHtml({ brandName: '합계', ...grandTotal }, true)
-      : '<tr><td colspan="9" class="mkt-empty-row">이 달에 데이터가 없어요.</td></tr>';
+  // ==================== 오늘의 광고 진단 (규칙 기반 자동 진단, 처리상태는 브라우저 localStorage에 저장) ====================
+  function saDiagId(parts) {
+    return parts.join('|').replace(/[^a-zA-Z0-9가-힣]/g, '_');
+  }
+  function getSaDiagStatus(id) {
+    try { return localStorage.getItem('saDiag_' + id) || '확인전'; } catch (e) { return '확인전'; }
+  }
+  function setSaDiagStatus(id, value) {
+    try { localStorage.setItem('saDiag_' + id, value); } catch (e) {}
+  }
+  function diagPriorityClass(p) {
+    return p === '긴급' ? 'waste' : p === '주의' ? 'caution' : p === '우수' ? 'good' : 'info';
+  }
 
-    // ---- 일별 성과 (브랜드 열 추가) ----
-    const dailyRows = allMarketingDailyRows
-      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.date && r.date.slice(0, 7) === monthStr)
+  function renderSaDiagnosis(from, to) {
+    const items = [];
+    const channels = SA_CARD_BRANDS.map((b) => b.channel);
+    const totalAgg = sumRows(saDailyRowsForBrands(channels, from, to));
+
+    for (const b of SA_CARD_BRANDS) {
+      const agg = sumRows(saDailyRowsForChannel(b.channel, from, to));
+      if (agg.spend <= 0) continue;
+      const roas = roasOf(agg);
+      const goal = brandGoal(b.channel);
+      const share = totalAgg.spend > 0 ? (agg.spend / totalAgg.spend * 100) : 0;
+
+      if (roas < goal.min) {
+        items.push({ priority: '긴급', brand: b.name, title: '최소 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (최소 ${goal.min}%)`, action: '입찰가·소재 재점검 또는 예산 축소 검토', id: saDiagId([from, to, b.channel, 'low-roas']) });
+      } else if (roas < goal.target) {
+        items.push({ priority: '주의', brand: b.name, title: '목표 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (목표 ${goal.target}%)`, action: '캠페인별 성과 확인', id: saDiagId([from, to, b.channel, 'below-target']) });
+      } else {
+        items.push({ priority: '우수', brand: b.name, title: '목표 ROAS 초과', evidence: `ROAS ${roas.toFixed(0)}%`, action: '예산 확대 검토', id: saDiagId([from, to, b.channel, 'above-target']) });
+      }
+      if (agg.conversions > 0 && agg.revenue === 0) {
+        items.push({ priority: '확인', brand: b.name, title: '전환매출 미집계', evidence: `전환 ${agg.conversions.toLocaleString('ko-KR')}건, 매출 0원`, action: '네이버 전환추적(매출 연동) 설정 확인', id: saDiagId([from, to, b.channel, 'no-revenue']) });
+      }
+      if (share >= 30) {
+        items.push({ priority: '확인', brand: b.name, title: '전체 광고비 비중이 높음', evidence: `광고비 ${won(Math.round(agg.spend))} (비중 ${share.toFixed(0)}%)`, action: '고비용 저효율 캠페인 확인', id: saDiagId([from, to, b.channel, 'high-share']) });
+      }
+    }
+
+    const wasteTop = naverSaKeywordAllRows.filter((r) => r.status === 'waste').sort((a, b) => b.spend - a.spend).slice(0, 5);
+    for (const r of wasteTop) {
+      items.push({ priority: '긴급', brand: r.brandName, title: '낭비 광고비 발생', evidence: `전환 0건, 광고비 ${won(Math.round(r.spend))} (키워드: ${r.keyword})`, action: '입찰가 축소 또는 중단 검토', id: saDiagId([r.channel, r.campaign, r.keyword, 'waste']) });
+    }
+
+    const order = { '긴급': 0, '주의': 1, '확인': 2, '우수': 3 };
+    items.sort((a, b) => order[a.priority] - order[b.priority]);
+
+    document.getElementById('saDiagnosisTable').innerHTML = items.length ? items.map((it) => `
+      <tr>
+        <td><span class="sa-diag-badge ${diagPriorityClass(it.priority)}">${it.priority}</span></td>
+        <td>${escapeAttr(it.brand)}</td>
+        <td>${escapeAttr(it.title)}</td>
+        <td>${escapeAttr(it.evidence)}</td>
+        <td>${escapeAttr(it.action)}</td>
+        <td>
+          <select class="vendor-select" onchange="setSaDiagStatus('${it.id}', this.value)">
+            ${['확인전', '확인완료', '조치완료'].map((s) => `<option value="${s}" ${getSaDiagStatus(it.id) === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>
+    `).join('') : '<tr><td colspan="6" class="mkt-empty-row">지금은 특별히 확인할 항목이 없어요.</td></tr>';
+  }
+
+  // ==================== 상세 성과: 월 선택 기반 캠페인/키워드/낭비 키워드 ====================
+  function renderSaDetailMonth(monthStr) {
+    // ---- 캠페인별 성과 ----
+    saCampaignAllRows = allMarketingCampaignRows
+      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (r.ad_type || 'SA') === 'SA')
       .slice()
-      .sort((a, b) => b.date === a.date
-        ? naverSaBrandName(a.channel).localeCompare(naverSaBrandName(b.channel))
-        : b.date.localeCompare(a.date));
+      .sort((a, b) => Number(b.spend) - Number(a.spend));
+    saCampaignShowAll = false;
+    renderSaCampaignTable();
 
-    document.getElementById('mktNaverSaDailyTable').innerHTML = dailyRows.length
-      ? dailyRows.map((r) => {
-          const spend = Number(r.spend);
-          const impressions = Number(r.impressions);
-          const clicks = Number(r.clicks);
-          const conversions = Number(r.conversions);
-          const revenue = Number(r.revenue);
-          const dCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
-          const dCpc = clicks > 0 ? (spend / clicks) : 0;
-          const dRoas = spend > 0 ? (revenue / spend * 100) : 0;
-          return `
-            <tr>
-              <td>${r.date}</td>
-              <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
-              <td class="num">${won(spend)}</td>
-              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
-              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
-              <td class="num">${dCtr.toFixed(2)}%</td>
-              <td class="num">${won(Math.round(dCpc))}</td>
-              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
-              <td class="num">${won(revenue)}</td>
-              <td class="num">${dRoas.toFixed(0)}%</td>
-            </tr>
-          `;
-        }).join('')
-      : '<tr><td colspan="10" class="mkt-empty-row">이 달에 일별 데이터가 아직 없어요.</td></tr>';
-
-    // ---- 캠페인별 성과 (전 브랜드 합산 · GFA·파워링크는 각자 페이지에서 다룬다) ----
-    const campaignRows = allMarketingCampaignRows
-      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (r.ad_type || 'SA') === 'SA');
-
-    renderMarketingNaverSaCampaignTable(campaignRows.slice().sort((a, b) => Number(b.spend) - Number(a.spend)));
-
-    // ---- 키워드별 성과: 브랜드/캠페인/CPA 등 파생값 + 성과 상태(우수/주의/낭비)를 미리 계산해둔다 ----
-    const kwRowsRaw = allMarketingKeywordRows
-      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr);
-
-    const convertingKw = kwRowsRaw.filter((r) => Number(r.conversions) > 0);
+    // ---- 키워드별 성과: 파생값 + 성과 상태(우수/주의/낭비/매출미집계) 계산 ----
+    const kwRowsRaw = allMarketingKeywordRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr);
+    const convertingKw = kwRowsRaw.filter((r) => Number(r.conversions) > 0 && Number(r.revenue) > 0);
     const convertingSpend = convertingKw.reduce((s, r) => s + Number(r.spend), 0);
     const convertingConversions = convertingKw.reduce((s, r) => s + Number(r.conversions), 0);
     const avgCpaConverting = convertingConversions > 0 ? (convertingSpend / convertingConversions) : 0;
     const avgSpendAll = kwRowsRaw.length ? kwRowsRaw.reduce((s, r) => s + Number(r.spend), 0) / kwRowsRaw.length : 0;
+    const kwCtx = { avgCpaConverting, avgSpendAll, target: MARKETING_ROAS_TARGET };
 
     naverSaKeywordAllRows = kwRowsRaw.map((r) => {
-      const spend = Number(r.spend);
-      const impressions = Number(r.impressions);
-      const clicks = Number(r.clicks);
-      const conversions = Number(r.conversions);
-      const revenue = Number(r.revenue);
-      const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
-      const cpc = clicks > 0 ? (spend / clicks) : 0;
-      const cpa = conversions > 0 ? (spend / conversions) : 0;
-      const roas = spend > 0 ? (revenue / spend * 100) : 0;
-      let status = 'normal';
-      if (clicks >= WASTE_KEYWORD_MIN_CLICKS && conversions === 0) {
-        status = 'waste';
-      } else if (conversions > 0 && (roas >= MARKETING_ROAS_TARGET || (avgCpaConverting > 0 && cpa <= avgCpaConverting))) {
-        status = 'good';
-      } else if (avgSpendAll > 0 && spend >= avgSpendAll && (conversions === 0 || roas < MARKETING_ROAS_TARGET)) {
-        status = 'caution';
-      }
+      const spend = Number(r.spend), impressions = Number(r.impressions), clicks = Number(r.clicks),
+        conversions = Number(r.conversions), revenue = Number(r.revenue);
+      const roas = roasOf({ spend, revenue }), cpa = cpaOf({ spend, conversions });
+      const status = classifySaRowStatus({ spend, clicks, conversions, revenue, roas, cpa }, kwCtx);
       return {
-        channel: r.channel, brandName: naverSaBrandName(r.channel), keyword: r.keyword,
+        channel: r.channel, brandName: naverSaBrandName(r.channel), keyword_id: r.keyword_id, keyword: r.keyword,
         campaign: r.campaign, adgroup: r.adgroup,
-        spend, impressions, clicks, conversions, revenue, ctr, cpc, cpa, roas, status,
+        spend, impressions, clicks, conversions, revenue,
+        ctr: ctrOf({ impressions, clicks }), cpc: cpcOf({ clicks, spend }), cpa, roas, status,
       };
     });
 
     populateNaverSaKwBrandOptions();
     populateNaverSaKwCampaignOptions();
     syncNaverSaKwTabButtons();
+    saKeywordShowAll = false;
     renderNaverSaKeywordSection();
 
-    // ---- 낭비 키워드 (고정 섹션: 필터와 무관하게 항상 이 달 전체 낭비 키워드를 보여준다. 없으면 섹션째로 숨긴다) ----
-    const wasteRows = naverSaKeywordAllRows.filter((r) => r.status === 'waste').sort((a, b) => b.spend - a.spend);
-    const wasteSectionEl = document.getElementById('mktNaverSaWasteSection');
-    wasteSectionEl.style.display = wasteRows.length ? '' : 'none';
-    if (!wasteRows.length) return;
+    renderSaWasteTab(monthStr);
 
-    const wasteTotalSpend = wasteRows.reduce((s, r) => s + r.spend, 0);
-    document.getElementById('mktNaverSaWasteInsights').innerHTML = `
-      <div class="insight-chip">
-        <div class="insight-chip-label">낭비 키워드 개수</div>
-        <div class="insight-chip-value${wasteRows.length > 0 ? ' pct-red' : ''}">${wasteRows.length.toLocaleString('ko-KR')}개</div>
-      </div>
-      <div class="insight-chip">
-        <div class="insight-chip-label">총 낭비 광고비</div>
-        <div class="insight-chip-value${wasteTotalSpend > 0 ? ' pct-red' : ''}">${won(Math.round(wasteTotalSpend))}</div>
-      </div>
-    `;
-    document.getElementById('mktNaverSaWasteKeywordTable').innerHTML = wasteRows.map((r) => `
-            <tr>
-              <td>${escapeAttr(r.brandName)}</td>
-              <td>${escapeAttr(r.keyword)}</td>
-              <td>${escapeAttr(r.campaign)}</td>
-              <td>${escapeAttr(r.adgroup)}</td>
-              <td class="num">${won(r.spend)}</td>
-              <td class="num">${r.impressions.toLocaleString('ko-KR')}</td>
-              <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
-              <td class="num">${r.ctr.toFixed(2)}%</td>
-              <td class="num">${won(Math.round(r.cpc))}</td>
-            </tr>
-        `).join('');
+    const { from, to } = currentSaRange();
+    renderSaDiagnosis(from, to);
+  }
+
+  function setSaDetailTab(tab) {
+    saDetailTabState = tab;
+    document.querySelectorAll('#saDetailTabs .ad-type-filter-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.satab === tab);
+    });
+    document.getElementById('saDetailPanelCampaign').style.display = tab === 'campaign' ? '' : 'none';
+    document.getElementById('saDetailPanelKeyword').style.display = tab === 'keyword' ? '' : 'none';
+    document.getElementById('saDetailPanelWaste').style.display = tab === 'waste' ? '' : 'none';
+  }
+
+  const SA_STATUS_LABEL = { good: '우수', caution: '주의', waste: '낭비', 'no-revenue': '매출미집계', normal: '-' };
+
+  function renderSaCampaignTable() {
+    const convertingRows = saCampaignAllRows.filter((r) => Number(r.conversions) > 0 && Number(r.revenue) > 0);
+    const convertingSpend = convertingRows.reduce((s, r) => s + Number(r.spend), 0);
+    const convertingConversions = convertingRows.reduce((s, r) => s + Number(r.conversions), 0);
+    const avgCpaConverting = convertingConversions > 0 ? (convertingSpend / convertingConversions) : 0;
+    const avgSpendAll = saCampaignAllRows.length ? saCampaignAllRows.reduce((s, r) => s + Number(r.spend), 0) / saCampaignAllRows.length : 0;
+    const ctx = { avgCpaConverting, avgSpendAll, target: MARKETING_ROAS_TARGET };
+
+    const enriched = saCampaignAllRows.map((r, idx) => {
+      const spend = Number(r.spend), impressions = Number(r.impressions), clicks = Number(r.clicks),
+        conversions = Number(r.conversions), revenue = Number(r.revenue);
+      const roas = roasOf({ spend, revenue }), cpa = cpaOf({ spend, conversions });
+      const ctr = ctrOf({ impressions, clicks }), cpc = cpcOf({ clicks, spend });
+      const status = classifySaRowStatus({ spend, clicks, conversions, revenue, roas, cpa }, ctx);
+      return { idx, brandName: naverSaBrandName(r.channel), campaign: r.campaign, spend, impressions, clicks, conversions, revenue, roas, cpa, ctr, cpc, status };
+    });
+
+    const shown = saCampaignShowAll ? enriched : enriched.slice(0, 10);
+    document.getElementById('mktNaverSaCampaignTable').innerHTML = shown.length ? shown.map((r) => `
+      <tr class="${saRowClass(r.status)}">
+        <td class="sa-expand-toggle" onclick="toggleSaCampaignDetail(${r.idx})">▸</td>
+        <td>${escapeAttr(r.brandName)}</td>
+        <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
+        <td class="num">${won(Math.round(r.spend))}</td>
+        <td class="num">${won(Math.round(r.revenue))}</td>
+        <td class="num">${r.roas.toFixed(0)}%</td>
+        <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
+        <td class="num">${r.conversions > 0 ? won(Math.round(r.cpa)) : '-'}</td>
+        <td><span class="sa-status-tag ${r.status}">${SA_STATUS_LABEL[r.status]}</span></td>
+      </tr>
+      <tr class="sa-detail-row" id="saCampaignDetail${r.idx}" style="display:none;">
+        <td colspan="9">노출 ${r.impressions.toLocaleString('ko-KR')} · 클릭 ${r.clicks.toLocaleString('ko-KR')} · CTR ${r.ctr.toFixed(2)}% · CPC ${won(Math.round(r.cpc))}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="9" class="mkt-empty-row">선택한 달에 캠페인별 데이터가 아직 없어요.</td></tr>';
+
+    const moreBtn = document.getElementById('saCampaignShowMoreBtn');
+    if (enriched.length > 10) {
+      moreBtn.style.display = '';
+      moreBtn.textContent = saCampaignShowAll ? '접기' : `전체 보기 (${enriched.length}개)`;
+    } else {
+      moreBtn.style.display = 'none';
+    }
+  }
+  function toggleSaCampaignDetail(idx) {
+    const row = document.getElementById('saCampaignDetail' + idx);
+    row.style.display = row.style.display === 'none' ? '' : 'none';
+  }
+  function toggleSaCampaignShowAll() {
+    saCampaignShowAll = !saCampaignShowAll;
+    renderSaCampaignTable();
   }
 
   // ---- 키워드별 성과 표: 필터/정렬/상태탭 상태 ----
@@ -2111,6 +2669,10 @@
     populateNaverSaKwCampaignOptions();
     renderNaverSaKeywordSection();
   }
+  function toggleSaKeywordShowAll() {
+    saKeywordShowAll = !saKeywordShowAll;
+    renderNaverSaKeywordSection();
+  }
 
   function renderNaverSaKeywordSection() {
     let rows = naverSaKeywordAllRows;
@@ -2123,12 +2685,14 @@
     }
     rows = rows.slice().sort((a, b) => Number(b[naverSaKwFilter.sort]) - Number(a[naverSaKwFilter.sort]));
 
-    document.getElementById('mktNaverSaKeywordTable').innerHTML = rows.length
-      ? rows.map((r) => {
+    const totalCount = rows.length;
+    const shown = saKeywordShowAll ? rows : rows.slice(0, 10);
+
+    document.getElementById('mktNaverSaKeywordTable').innerHTML = shown.length
+      ? shown.map((r) => {
           const dot = r.status === 'normal' ? '' : `<span class="status-dot ${r.status}"></span>`;
-          const rowClass = r.status === 'good' ? 'row-good' : r.status === 'caution' ? 'row-caution' : r.status === 'waste' ? 'row-waste' : '';
           return `
-            <tr class="${rowClass}">
+            <tr class="${saRowClass(r.status)}">
               <td>${escapeAttr(r.brandName)}</td>
               <td>${dot}${escapeAttr(r.keyword)}</td>
               <td class="num">${won(Math.round(r.spend))}</td>
@@ -2138,12 +2702,20 @@
               <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
               <td class="num">${r.ctr.toFixed(2)}%</td>
               <td class="num">${won(Math.round(r.cpc))}</td>
-              <td>${escapeAttr(r.campaign)}</td>
-              <td>${escapeAttr(r.adgroup)}</td>
+              <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
+              <td class="sa-truncate" title="${escapeAttr(r.adgroup)}">${escapeAttr(r.adgroup)}</td>
             </tr>
           `;
         }).join('')
       : '<tr><td colspan="11" class="mkt-empty-row">조건에 맞는 키워드가 없어요.</td></tr>';
+
+    const moreBtn = document.getElementById('saKeywordShowMoreBtn');
+    if (totalCount > 10) {
+      moreBtn.style.display = '';
+      moreBtn.textContent = saKeywordShowAll ? '접기' : `전체 보기 (${totalCount}개)`;
+    } else {
+      moreBtn.style.display = 'none';
+    }
 
     // 상단 인사이트 칩은 탭/검색과 무관하게 이 달 전체 키워드 기준으로 보여준다
     const all = naverSaKeywordAllRows;
@@ -2178,34 +2750,57 @@
     return arr.length ? arr.slice().sort((a, b) => b[key] - a[key])[0] : null;
   }
 
-  function renderMarketingNaverSaCampaignTable(campaignRows) {
-    document.getElementById('mktNaverSaCampaignTable').innerHTML = campaignRows.length
-      ? campaignRows.map((r) => {
-          const spend = Number(r.spend);
-          const impressions = Number(r.impressions);
-          const clicks = Number(r.clicks);
-          const conversions = Number(r.conversions);
-          const revenue = Number(r.revenue);
-          const rCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
-          const rCpc = clicks > 0 ? (spend / clicks) : 0;
-          const rCpa = conversions > 0 ? (spend / conversions) : 0;
-          const rRoas = spend > 0 ? (revenue / spend * 100) : 0;
-          return `
-            <tr>
-              <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
-              <td>${escapeAttr(r.campaign)}</td>
-              <td class="num">${won(spend)}</td>
-              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
-              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
-              <td class="num">${rCtr.toFixed(2)}%</td>
-              <td class="num">${won(Math.round(rCpc))}</td>
-              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
-              <td class="num">${won(Math.round(rCpa))}</td>
-              <td class="num">${rRoas.toFixed(0)}%</td>
-            </tr>
-          `;
-        }).join('')
-      : '<tr><td colspan="10" class="mkt-empty-row">이 달에 캠페인별 데이터가 아직 없어요.</td></tr>';
+  // ==================== 낭비 키워드 탭 ====================
+  function renderSaWasteTab(monthStr) {
+    const wasteRows = naverSaKeywordAllRows.filter((r) => r.status === 'waste').sort((a, b) => b.spend - a.spend);
+    const totalSpendAllKw = naverSaKeywordAllRows.reduce((s, r) => s + r.spend, 0);
+    const wasteTotalSpend = wasteRows.reduce((s, r) => s + r.spend, 0);
+    const wasteShare = totalSpendAllKw > 0 ? (wasteTotalSpend / totalSpendAllKw * 100) : 0;
+
+    // 연속 낭비 개월 수: 일별 키워드 데이터가 없어 월 단위 이력으로 대체 계산
+    const allNaverKwRows = allMarketingKeywordRows.filter((r) => r.channel && r.channel.startsWith('네이버'));
+    const allMonthsSorted = Array.from(new Set(allNaverKwRows.map((r) => r.month))).sort();
+    const curMonthIdx = allMonthsSorted.indexOf(monthStr);
+    function consecutiveWasteMonths(keywordId) {
+      let count = 0;
+      for (let i = curMonthIdx; i >= 0; i--) {
+        const row = allNaverKwRows.find((r) => r.keyword_id === keywordId && r.month === allMonthsSorted[i]);
+        if (!row) break;
+        if (Number(row.clicks) >= WASTE_KEYWORD_MIN_CLICKS && Number(row.conversions) === 0) count++; else break;
+      }
+      return count;
+    }
+
+    document.getElementById('mktNaverSaWasteInsights').innerHTML = `
+      <div class="insight-chip"><div class="insight-chip-label">낭비 키워드 개수</div><div class="insight-chip-value${wasteRows.length > 0 ? ' pct-red' : ''}">${wasteRows.length.toLocaleString('ko-KR')}개</div></div>
+      <div class="insight-chip"><div class="insight-chip-label">총 낭비 광고비</div><div class="insight-chip-value${wasteTotalSpend > 0 ? ' pct-red' : ''}">${won(Math.round(wasteTotalSpend))}</div></div>
+      <div class="insight-chip"><div class="insight-chip-label">전체 광고비 대비 비중</div><div class="insight-chip-value${wasteShare > 0 ? ' pct-red' : ''}">${wasteShare.toFixed(1)}%</div></div>
+      <div class="insight-chip"><div class="insight-chip-label">최장 연속 낭비</div><div class="insight-chip-value">${wasteRows.length ? Math.max(...wasteRows.map((r) => consecutiveWasteMonths(r.keyword_id))) : 0}개월</div></div>
+    `;
+
+    document.getElementById('mktNaverSaWasteKeywordTable').innerHTML = wasteRows.length ? wasteRows.map((r) => {
+      const months = consecutiveWasteMonths(r.keyword_id);
+      const diagId = saDiagId([r.channel, r.campaign, r.keyword, 'waste-tab']);
+      return `
+        <tr>
+          <td>${escapeAttr(r.brandName)}</td>
+          <td>${escapeAttr(r.keyword)}</td>
+          <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
+          <td class="sa-truncate" title="${escapeAttr(r.adgroup)}">${escapeAttr(r.adgroup)}</td>
+          <td class="num">${won(r.spend)}</td>
+          <td class="num">${r.impressions.toLocaleString('ko-KR')}</td>
+          <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
+          <td class="num">${r.ctr.toFixed(2)}%</td>
+          <td class="num">${won(Math.round(r.cpc))}</td>
+          <td>${months >= 2 ? '중단 검토' : '입찰가 축소'}</td>
+          <td>
+            <select class="vendor-select" onchange="setSaDiagStatus('${diagId}', this.value)">
+              ${['확인전', '확인완료', '조치완료'].map((s) => `<option value="${s}" ${getSaDiagStatus(diagId) === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </td>
+        </tr>
+      `;
+    }).join('') : `<tr><td colspan="11" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
   }
 
   // ==================== 네이버GFA / 네이버파워링크 (전 브랜드 통합, 캠페인 업로드 데이터 기준) ====================
