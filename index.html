@@ -259,14 +259,18 @@
   .brand-card.selected { outline: 2px solid #0f172a; outline-offset: -1px; }
   .brand-card.status-good { border-top-color: #16a34a; }
   .brand-card.status-caution { border-top-color: #d97706; }
-  .brand-card.status-inefficient { border-top-color: #dc2626; }
+  .brand-card.status-inefficient { border-top-color: #c2410c; }
+  .brand-card.status-waste { border-top-color: #dc2626; }
+  .brand-card.status-off-target { border-top-color: #64748b; }
   .brand-card.status-no-data { border-top-color: #94a3b8; opacity: .75; }
   .brand-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .brand-card-name { font-size: 16px; font-weight: 800; color: #0f172a; }
   .brand-card-status { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
   .brand-card-status.status-good { background: rgba(22,163,74,.12); color: #15803d; }
   .brand-card-status.status-caution { background: rgba(217,119,6,.12); color: #b45309; }
-  .brand-card-status.status-inefficient { background: rgba(220,38,38,.12); color: #dc2626; }
+  .brand-card-status.status-inefficient { background: rgba(234,88,12,.14); color: #c2410c; }
+  .brand-card-status.status-waste { background: rgba(220,38,38,.12); color: #dc2626; }
+  .brand-card-status.status-off-target { background: rgba(100,116,139,.12); color: #64748b; }
   .brand-card-status.status-no-data { background: rgba(100,116,139,.12); color: #64748b; }
   .brand-card-metric { display: flex; align-items: baseline; justify-content: space-between; padding: 3px 0; }
   .brand-card-metric-label { font-size: 12px; color: #64748b; }
@@ -305,7 +309,9 @@
 
   /* ---- 오늘의 광고 진단 / 상태 뱃지 ---- */
   .sa-diag-badge { display: inline-flex; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .sa-diag-badge.urgent { background: rgba(153,27,27,.15); color: #991b1b; }
   .sa-diag-badge.waste { background: rgba(220,38,38,.12); color: #dc2626; }
+  .sa-diag-badge.inefficient { background: rgba(234,88,12,.14); color: #c2410c; }
   .sa-diag-badge.caution { background: rgba(217,119,6,.12); color: #b45309; }
   .sa-diag-badge.good { background: rgba(22,163,74,.12); color: #15803d; }
   .sa-diag-badge.info { background: rgba(77,124,254,.12); color: #1d4ed8; }
@@ -313,9 +319,15 @@
   .sa-status-tag.good { background: rgba(22,163,74,.12); color: #15803d; }
   .sa-status-tag.caution { background: rgba(217,119,6,.12); color: #b45309; }
   .sa-status-tag.waste { background: rgba(220,38,38,.12); color: #dc2626; }
+  .sa-status-tag.inefficient { background: rgba(234,88,12,.14); color: #c2410c; }
+  .sa-status-tag.off-target { background: rgba(100,116,139,.12); color: #64748b; }
   .sa-status-tag.no-revenue { background: rgba(100,116,139,.12); color: #475569; }
   .sa-status-tag.normal { background: rgba(15,23,42,.06); color: #94a3b8; }
   .sa-status-tag.info { background: rgba(77,124,254,.12); color: #1d4ed8; }
+
+  /* ---- GFA 일별 그래프: 미집계(집계중) 구간 표시 ---- */
+  .sa-chart-x-label-pending { font-size: 9px; fill: #dc2626; }
+  .sa-chart-pending-band { fill: rgba(148,163,184,.12); }
 
   /* ---- 상세 성과 탭 / 펼침 행 / 말줄임 ---- */
   .sa-expand-toggle { cursor: pointer; color: #64748b; text-align: center; width: 22px; user-select: none; }
@@ -806,7 +818,7 @@
         <section class="panel">
           <div class="panel-head">
             <h2>네이버 GFA 요약</h2>
-            <span class="panel-note">선택한 기간 · 브랜드 합산 · 엑셀 리포트 업로드 기반</span>
+            <span class="panel-note">선택한 기간 · 전체 브랜드 합산 · 엑셀 리포트 업로드 기반</span>
           </div>
           <div class="kpi-row kpi-row-compact" id="gfaSummaryCards"></div>
         </section>
@@ -819,7 +831,7 @@
           <div class="brand-card-grid" id="gfaBrandCards"></div>
         </section>
 
-        <section class="panel">
+        <section class="panel" id="gfaBrandDetailSection" style="display:none;">
           <div class="panel-head">
             <h2 id="gfaBrandDetailTitle">선택 브랜드 핵심 지표</h2>
             <span class="panel-note" id="gfaBrandDetailNote"></span>
@@ -829,8 +841,23 @@
 
         <section class="panel">
           <div class="panel-head">
+            <h2>오늘의 광고 진단</h2>
+            <span class="panel-note">인지도·트래픽 등 전환 목적이 아닌 캠페인은 ROAS 진단에서 제외(목표 외로 별도 표시)</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>우선순위</th><th>브랜드</th><th>진단 내용</th><th>근거 수치</th><th>추천 조치</th><th>처리 상태</th></tr>
+              </thead>
+              <tbody id="gfaDiagnosisTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
             <h2>일별 광고비 · 전환매출 · ROAS 추이</h2>
-            <span class="panel-note">막대: 광고비 · 실선: 전환매출/ROAS · 점선: 목표·최소 ROAS 기준선</span>
+            <span class="panel-note">막대: 광고비 · 실선: 전환매출/ROAS · 점선: 목표·최소 ROAS 기준선 · 아직 집계 안 된 날짜는 0이 아니라 "집계중"으로 표시</span>
           </div>
           <div id="gfaTrendChartWrap"></div>
           <button type="button" class="filter-reset-btn" id="gfaTrendToggleBtn" onclick="toggleGfaDailyTable()" style="margin-top:12px;">일별 데이터 펼쳐보기 ▾</button>
@@ -846,23 +873,8 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>오늘의 광고 진단</h2>
-            <span class="panel-note">인지도·트래픽 목적 캠페인은 ROAS 진단에서 제외</span>
-          </div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th>우선순위</th><th>브랜드</th><th>진단 내용</th><th>근거 수치</th><th>추천 조치</th><th>처리 상태</th></tr>
-              </thead>
-              <tbody id="gfaDiagnosisTable"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
             <h2>캠페인 성과</h2>
-            <span class="panel-note">선택한 기간 · 전 브랜드</span>
+            <span class="panel-note">선택한 기간 · 광고비 발생한 캠페인만 기본 표시(광고비 0원은 전체 보기에서 확인)</span>
           </div>
           <div class="scroll-box">
             <table>
@@ -2201,7 +2213,8 @@
   }
 
   // unit: 'pp'(이미 %인 지표의 %p 차이), 'won'(금액, 변화율로 표시), 'pct'(건수 등, 변화율로 표시)
-  // neutral: true면 방향과 무관하게 중립색 — 광고비·CPA처럼 "많다/적다"만으론 좋고나쁨을 못 가르는 지표에 사용
+  // neutral: true면 방향과 무관하게 중립색 — 광고비·비중처럼 "많다/적다"만으론 좋고나쁨을 못 가르는 지표에 사용
+  // invert: true면 증가=나쁨/감소=좋음으로 색을 뒤집음 — CPA처럼 낮을수록 좋은 지표에 사용
   function deltaLine(cur, prev, opts) {
     opts = opts || {};
     if (prev === 0 && cur === 0) return '';
@@ -2216,8 +2229,22 @@
       const pct = (diff / Math.abs(prev)) * 100;
       text = `${arrow} ${Math.abs(pct).toFixed(1)}%`;
     }
-    const colorClass = opts.neutral ? 'delta-neutral' : (diff > 0 ? 'delta-up' : diff < 0 ? 'delta-down' : 'delta-flat');
+    let colorClass;
+    if (opts.neutral) {
+      colorClass = 'delta-neutral';
+    } else if (diff === 0) {
+      colorClass = 'delta-flat';
+    } else {
+      const isUp = diff > 0;
+      const isGood = opts.invert ? !isUp : isUp;
+      colorClass = isGood ? 'delta-up' : 'delta-down';
+    }
     return `<span class="${colorClass}">${text}</span>`;
+  }
+  // 비교 기간에 데이터 행 자체가 없을 때(0%가 아니라 "비교 데이터 없음")를 표시
+  function deltaLineOrNoData(cur, prev, hasCompareData, opts) {
+    if (!hasCompareData) return '<span class="delta-neutral">비교 데이터 없음</span>';
+    return deltaLine(cur, prev, opts);
   }
   function saKpiCard(label, value, deltaHtml, extraClass) {
     return `
@@ -2960,13 +2987,40 @@
     const g = GFA_BRAND_ROAS_GOALS[channel];
     return { target: (g && g.target) || GFA_ROAS_TARGET_DEFAULT, min: (g && g.min) || GFA_ROAS_MIN_DEFAULT };
   }
-  function classifyGfaBrandStatus(channel, agg) {
+
+  // 인지도/트래픽/도달/영상조회처럼 전환이 목적이 아닌 캠페인은 애초에 매출이 잡히지 않으므로
+  // ROAS로 성과를 판단하지 않는다(캠페인목적 컬럼 문자열에 아래 키워드가 포함되면 제외).
+  const GFA_NON_CONVERSION_PURPOSE_KEYWORDS = ['인지도', '트래픽', '도달', '영상 조회', '영상조회'];
+  function isGfaConversionPurpose(purpose) {
+    if (!purpose) return true; // 목적이 비어있으면 보수적으로 전환 목적으로 취급(진단에서 빠지지 않게)
+    return !GFA_NON_CONVERSION_PURPOSE_KEYWORDS.some((kw) => purpose.includes(kw));
+  }
+  function gfaConversionAgg(rows) {
+    return sumRows(rows.filter((r) => isGfaConversionPurpose(r.campaign_purpose)));
+  }
+
+  const GFA_STATUS_LABEL = { good: '우수', caution: '주의', inefficient: '비효율', waste: '낭비', 'off-target': '목표 외', 'no-data': '데이터 없음' };
+
+  // 브랜드 카드 · 오늘의 진단 · 캠페인 성과 표가 전부 이 함수 하나로 성과 상태를 판정한다.
+  // (예전엔 브랜드카드/진단은 ROAS 등급으로, 캠페인 표는 SA에서 빌려온 CPA 상대비교 로직으로 판정해서
+  //  같은 캠페인인데 카드="주의", 표="우수"처럼 결과가 어긋나는 버그가 있었다 — 이제는 한 곳만 고치면 된다.)
+  // agg: {spend, conversions, revenue, ...} · goal: {target, min} · isConversionPurpose: false면 인지도/트래픽류라 ROAS 판단 대상이 아님(목표 외)
+  function classifyGfaPerformanceStatus(agg, goal, isConversionPurpose) {
     if (!agg || agg.spend <= 0) return 'no-data';
-    const { target, min } = gfaBrandGoal(channel);
+    if (isConversionPurpose === false) return 'off-target';
+    if (agg.conversions <= 0) return 'waste'; // 광고비는 썼는데 전환이 0건
     const roas = roasOf(agg);
-    if (roas >= target) return 'good';
-    if (roas >= min) return 'caution';
+    if (roas >= goal.target) return 'good';
+    if (roas >= goal.min) return 'caution';
     return 'inefficient';
+  }
+  function gfaDiagPriorityClass(p) {
+    return p === '긴급' ? 'urgent' : p === '낭비' ? 'waste' : p === '비효율' ? 'inefficient' : p === '주의' ? 'caution' : p === '우수' ? 'good' : 'info';
+  }
+  function gfaLatestConfirmedDate() {
+    let latest = null;
+    for (const r of allGfaDailyRows) { if (!latest || r.date > latest) latest = r.date; }
+    return latest;
   }
 
   let allGfaDailyRows = [];
@@ -3018,19 +3072,24 @@
     const lastUpdated = allGfaUpdated.length
       ? allGfaUpdated.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), allGfaUpdated[0].updated_at)
       : null;
+    const latestConfirmed = gfaLatestConfirmedDate();
     document.getElementById('gfaFilterMeta').innerHTML = `
       <span class="sa-filter-meta-item">📅 ${escapeAttr(periodLabel(gfaFilter.period, from, to))}</span>
       <span class="sa-filter-meta-item">비교: ${escapeAttr(compareLabel(gfaFilter.compare))} (${cmp.from} ~ ${cmp.to})</span>
       ${lastUpdated ? `<span class="sa-filter-meta-item">마지막 업데이트: ${escapeAttr(formatUpdatedAt(lastUpdated))}</span>` : ''}
+      ${latestConfirmed ? `<span class="sa-filter-meta-item">최근 확정 데이터: ${escapeAttr(latestConfirmed)}</span>` : ''}
     `;
     document.getElementById('mktNaverGfaSubtitle').textContent =
       `${from} ~ ${to} · 브랜드 ${GFA_CARD_BRANDS.length}개 중 데이터 있는 브랜드 기준`;
 
+    const detailSection = document.getElementById('gfaBrandDetailSection');
+    detailSection.style.display = gfaFilter.brand ? '' : 'none';
+
     renderGfaSummaryCards(curRows, cmpRows);
     renderGfaBrandCards(from, to, cmp);
-    renderGfaBrandDetail(from, to, cmp);
-    renderGfaTrendChart(from, to);
+    if (gfaFilter.brand) renderGfaBrandDetail(from, to, cmp);
     renderGfaDiagnosis(from, to);
+    renderGfaTrendChart(from, to);
     renderGfaCampaignTable(from, to);
     if (document.getElementById('gfaDailyTableWrap').style.display !== 'none') renderGfaDailyTable();
   }
@@ -3038,26 +3097,56 @@
   function renderGfaSummaryCards(curRows, cmpRows) {
     const cur = sumRows(curRows);
     const cmp = sumRows(cmpRows);
-    const curRoas = roasOf(cur), cmpRoas = roasOf(cmp);
-    const curCpa = cpaOf(cur), cmpCpa = cpaOf(cmp);
+    // ROAS·전환매출·전환·CPA는 인지도/트래픽 등 전환 목적이 아닌 캠페인의 광고비를 빼고 계산한다
+    // (그런 캠페인은 매출이 0으로 잡혀 ROAS 분모만 부풀린다).
+    const curConv = gfaConversionAgg(curRows);
+    const cmpConv = gfaConversionAgg(cmpRows);
+    const curRoas = roasOf(curConv), cmpRoas = roasOf(cmpConv);
+    const curCpa = cpaOf(curConv), cmpCpa = cpaOf(cmpConv);
+    const hasCmpRows = cmpRows.length > 0;
+    const hasCmpConvRows = cmpConv.spend > 0 || cmpConv.conversions > 0;
+
+    // 비효율·낭비 광고비: 전환 목적 캠페인 중 상태가 낭비/비효율인 캠페인의 광고비 합
+    const byCampaign = new Map();
+    for (const r of curRows) {
+      if (!isGfaConversionPurpose(r.campaign_purpose)) continue;
+      const key = r.channel + '|' + r.campaign;
+      const c = byCampaign.get(key) || { spend: 0, conversions: 0, revenue: 0 };
+      c.spend += Number(r.spend); c.conversions += Number(r.conversions); c.revenue += Number(r.revenue);
+      byCampaign.set(key, c);
+    }
+    let inefficientSpend = 0;
+    const flatGoal = { target: GFA_ROAS_TARGET_DEFAULT, min: GFA_ROAS_MIN_DEFAULT };
+    for (const c of byCampaign.values()) {
+      const status = classifyGfaPerformanceStatus(c, flatGoal, true);
+      if (status === 'waste' || status === 'inefficient') inefficientSpend += c.spend;
+    }
+    const inefficientShare = cur.spend > 0 ? (inefficientSpend / cur.spend * 100) : 0;
+
     document.getElementById('gfaSummaryCards').innerHTML = [
-      saKpiCard('광고비', won(Math.round(cur.spend)), deltaLine(cur.spend, cmp.spend, { unit: 'won', neutral: true })),
-      saKpiCard('전환매출', won(Math.round(cur.revenue)), deltaLine(cur.revenue, cmp.revenue, { unit: 'won' })),
-      saKpiCard('ROAS', curRoas.toFixed(0) + '%', deltaLine(curRoas, cmpRoas, { unit: 'pp' }), curRoas >= GFA_ROAS_TARGET_DEFAULT ? 'kpi-value-good' : ''),
-      saKpiCard('클릭', cur.clicks.toLocaleString('ko-KR'), deltaLine(cur.clicks, cmp.clicks, { unit: 'pct' })),
-      saKpiCard('전환', cur.conversions.toLocaleString('ko-KR'), deltaLine(cur.conversions, cmp.conversions, { unit: 'pct' })),
-      saKpiCard('CPA', cur.conversions > 0 ? won(Math.round(curCpa)) : '-', (cur.conversions > 0 && cmp.conversions > 0) ? deltaLine(curCpa, cmpCpa, { unit: 'won', neutral: true }) : ''),
+      saKpiCard('광고비', won(Math.round(cur.spend)), deltaLineOrNoData(cur.spend, cmp.spend, hasCmpRows, { unit: 'won', neutral: true })),
+      saKpiCard('전환매출', won(Math.round(curConv.revenue)), deltaLineOrNoData(curConv.revenue, cmpConv.revenue, hasCmpConvRows, { unit: 'won' })),
+      saKpiCard('ROAS', curRoas.toFixed(0) + '%', deltaLineOrNoData(curRoas, cmpRoas, hasCmpConvRows, { unit: 'pp' }), curRoas >= GFA_ROAS_TARGET_DEFAULT ? 'kpi-value-good' : ''),
+      saKpiCard('클릭', cur.clicks.toLocaleString('ko-KR'), deltaLineOrNoData(cur.clicks, cmp.clicks, hasCmpRows, { unit: 'pct' })),
+      saKpiCard('전환', curConv.conversions.toLocaleString('ko-KR'), deltaLineOrNoData(curConv.conversions, cmpConv.conversions, hasCmpConvRows, { unit: 'pct' })),
+      saKpiCard('CPA', curConv.conversions > 0 ? won(Math.round(curCpa)) : '-', (curConv.conversions > 0 && cmpConv.conversions > 0) ? deltaLine(curCpa, cmpCpa, { unit: 'won', invert: true }) : ''),
+      saKpiCard('비효율·낭비 광고비', won(Math.round(inefficientSpend)), `<span class="delta-neutral">전체 광고비의 ${inefficientShare.toFixed(1)}%</span>`),
     ].join('');
   }
 
   function renderGfaBrandCards(from, to, cmp) {
-    const statusLabel = { good: '우수', caution: '주의', inefficient: '비효율', 'no-data': '데이터 없음' };
+    const statusLabel = GFA_STATUS_LABEL;
     document.getElementById('gfaBrandCards').innerHTML = GFA_CARD_BRANDS.map((b) => {
-      const curAgg = sumRows(gfaRowsForChannel(b.channel, from, to));
-      const cmpAgg = sumRows(gfaRowsForChannel(b.channel, cmp.from, cmp.to));
-      const status = classifyGfaBrandStatus(b.channel, curAgg);
-      const roas = roasOf(curAgg), cmpRoas = roasOf(cmpAgg);
+      const rows = gfaRowsForChannel(b.channel, from, to);
+      const cmpRows = gfaRowsForChannel(b.channel, cmp.from, cmp.to);
+      const totalAgg = sumRows(rows);
+      const convAgg = gfaConversionAgg(rows);
+      const cmpConvAgg = gfaConversionAgg(cmpRows);
+      const goal = gfaBrandGoal(b.channel);
+      const status = totalAgg.spend <= 0 ? 'no-data' : (convAgg.spend > 0 ? classifyGfaPerformanceStatus(convAgg, goal, true) : 'off-target');
+      const roas = roasOf(convAgg), cmpRoas = roasOf(cmpConvAgg);
       const isSelected = gfaFilter.brand === b.channel;
+      const excludedSpend = totalAgg.spend - convAgg.spend;
       return `
         <div class="brand-card status-${status}${isSelected ? ' selected' : ''}" onclick="toggleGfaBrand('${escapeAttr(b.channel)}')">
           <div class="brand-card-head">
@@ -3066,12 +3155,16 @@
           </div>
           ${status === 'no-data' ? `
             <div class="brand-card-empty">이 기간 데이터가 없어요.</div>
+          ` : status === 'off-target' ? `
+            <div class="brand-card-metric"><span class="brand-card-metric-label">광고비</span><span class="brand-card-metric-value">${won(Math.round(totalAgg.spend))}</span></div>
+            <div class="brand-card-empty">인지도·트래픽 목적 캠페인만 집행돼 ROAS 판단 대상이 아니에요.</div>
           ` : `
-            <div class="brand-card-metric"><span class="brand-card-metric-label">전환매출</span><span class="brand-card-metric-value">${won(Math.round(curAgg.revenue))}</span></div>
-            <div class="brand-card-metric"><span class="brand-card-metric-label">광고비</span><span class="brand-card-metric-value">${won(Math.round(curAgg.spend))}</span></div>
+            <div class="brand-card-metric"><span class="brand-card-metric-label">전환매출</span><span class="brand-card-metric-value">${won(Math.round(convAgg.revenue))}</span></div>
+            <div class="brand-card-metric"><span class="brand-card-metric-label">광고비</span><span class="brand-card-metric-value">${won(Math.round(totalAgg.spend))}</span></div>
             <div class="brand-card-metric"><span class="brand-card-metric-label">ROAS</span><span class="brand-card-metric-value">${roas.toFixed(0)}%</span></div>
-            <div class="brand-card-metric"><span class="brand-card-metric-label">전환</span><span class="brand-card-metric-value">${curAgg.conversions.toLocaleString('ko-KR')}건</span></div>
-            <div class="brand-card-delta">${escapeAttr(compareLabel(gfaFilter.compare))} ROAS ${deltaLine(roas, cmpRoas, { unit: 'pp' })}</div>
+            <div class="brand-card-metric"><span class="brand-card-metric-label">전환</span><span class="brand-card-metric-value">${convAgg.conversions.toLocaleString('ko-KR')}건</span></div>
+            <div class="brand-card-delta">${escapeAttr(compareLabel(gfaFilter.compare))} ROAS ${deltaLineOrNoData(roas, cmpRoas, cmpConvAgg.spend > 0 || cmpConvAgg.conversions > 0, { unit: 'pp' })}</div>
+            ${excludedSpend > 0 ? `<div class="brand-card-delta">인지도·트래픽 광고비 ${won(Math.round(excludedSpend))} 별도(ROAS 판단 제외)</div>` : ''}
           `}
           <div class="brand-card-link">상세보기 →</div>
         </div>
@@ -3122,31 +3215,36 @@
   }
 
   function renderGfaBrandDetail(from, to, cmp) {
-    const channels = gfaFilter.brand ? [gfaFilter.brand] : GFA_CARD_BRANDS.map((b) => b.channel);
-    const label = gfaFilter.brand ? naverSaBrandName(gfaFilter.brand) : '전체 브랜드';
+    const channels = [gfaFilter.brand];
+    const label = naverSaBrandName(gfaFilter.brand);
     document.getElementById('gfaBrandDetailTitle').textContent = `${label} 핵심 지표`;
     document.getElementById('gfaBrandDetailNote').textContent = periodLabel(gfaFilter.period, from, to);
 
-    const cur = sumRows(gfaRowsForBrands(channels, from, to));
-    const cmpAgg = sumRows(gfaRowsForBrands(channels, cmp.from, cmp.to));
+    const totalAgg = sumRows(gfaRowsForBrands(channels, from, to));
+    const cmpTotalAgg = sumRows(gfaRowsForBrands(channels, cmp.from, cmp.to));
+    // ROAS·전환매출·전환·CPA는 인지도/트래픽 등 전환 목적이 아닌 캠페인의 광고비를 뺀 값 기준
+    const cur = gfaConversionAgg(gfaRowsForBrands(channels, from, to));
+    const cmpAgg = gfaConversionAgg(gfaRowsForBrands(channels, cmp.from, cmp.to));
     const totalAllBrands = sumRows(gfaRowsForBrands(GFA_CARD_BRANDS.map((b) => b.channel), from, to));
     const cmpTotalAllBrands = sumRows(gfaRowsForBrands(GFA_CARD_BRANDS.map((b) => b.channel), cmp.from, cmp.to));
     const roas = roasOf(cur), cmpRoas = roasOf(cmpAgg);
     const cpa = cpaOf(cur), cmpCpa = cpaOf(cmpAgg);
-    const spendShare = totalAllBrands.spend > 0 ? (cur.spend / totalAllBrands.spend * 100) : 0;
-    const cmpSpendShare = cmpTotalAllBrands.spend > 0 ? (cmpAgg.spend / cmpTotalAllBrands.spend * 100) : 0;
-    const goal = gfaFilter.brand ? gfaBrandGoal(gfaFilter.brand) : { target: GFA_ROAS_TARGET_DEFAULT, min: GFA_ROAS_MIN_DEFAULT };
+    const hasCmpTotalRows = cmpTotalAgg.spend > 0;
+    const hasCmpConvRows = cmpAgg.spend > 0 || cmpAgg.conversions > 0;
+    const spendShare = totalAllBrands.spend > 0 ? (totalAgg.spend / totalAllBrands.spend * 100) : 0;
+    const cmpSpendShare = cmpTotalAllBrands.spend > 0 ? (cmpTotalAgg.spend / cmpTotalAllBrands.spend * 100) : 0;
+    const goal = gfaBrandGoal(gfaFilter.brand);
     const goalDeltaPP = roas - goal.target;
 
     document.getElementById('gfaBrandDetailCards').innerHTML = [
-      saKpiCard('광고비', won(Math.round(cur.spend)), deltaLine(cur.spend, cmpAgg.spend, { unit: 'won', neutral: true })),
-      saKpiCard('전환매출', won(Math.round(cur.revenue)), deltaLine(cur.revenue, cmpAgg.revenue, { unit: 'won' })),
+      saKpiCard('광고비', won(Math.round(totalAgg.spend)), deltaLineOrNoData(totalAgg.spend, cmpTotalAgg.spend, hasCmpTotalRows, { unit: 'won', neutral: true })),
+      saKpiCard('전환매출', won(Math.round(cur.revenue)), deltaLineOrNoData(cur.revenue, cmpAgg.revenue, hasCmpConvRows, { unit: 'won' })),
       saKpiCard('ROAS', roas.toFixed(0) + '%',
-        `${deltaLine(roas, cmpRoas, { unit: 'pp' })}<div class="kpi-delta-sub">목표 대비 ${goalDeltaPP >= 0 ? '+' : ''}${goalDeltaPP.toFixed(0)}%p</div>`,
+        `${deltaLineOrNoData(roas, cmpRoas, hasCmpConvRows, { unit: 'pp' })}<div class="kpi-delta-sub">목표 대비 ${goalDeltaPP >= 0 ? '+' : ''}${goalDeltaPP.toFixed(0)}%p</div>`,
         roas >= goal.target ? 'kpi-value-good' : (roas < goal.min ? 'kpi-value-bad' : '')),
-      saKpiCard('전환', cur.conversions.toLocaleString('ko-KR') + '건', deltaLine(cur.conversions, cmpAgg.conversions, { unit: 'pct' })),
-      saKpiCard('CPA', cur.conversions > 0 ? won(Math.round(cpa)) : '-', (cur.conversions > 0 && cmpAgg.conversions > 0) ? deltaLine(cpa, cmpCpa, { unit: 'won', neutral: true }) : ''),
-      saKpiCard('광고비 비중', spendShare.toFixed(1) + '%', deltaLine(spendShare, cmpSpendShare, { unit: 'pp' })),
+      saKpiCard('전환', cur.conversions.toLocaleString('ko-KR') + '건', deltaLineOrNoData(cur.conversions, cmpAgg.conversions, hasCmpConvRows, { unit: 'pct' })),
+      saKpiCard('CPA', cur.conversions > 0 ? won(Math.round(cpa)) : '-', (cur.conversions > 0 && cmpAgg.conversions > 0) ? deltaLine(cpa, cmpCpa, { unit: 'won', invert: true }) : ''),
+      saKpiCard('광고비 비중', spendShare.toFixed(1) + '%', deltaLineOrNoData(spendShare, cmpSpendShare, hasCmpTotalRows, { unit: 'pp', neutral: true })),
     ].join('');
   }
 
@@ -3160,10 +3258,15 @@
       cur.conversions += Number(r.conversions); cur.revenue += Number(r.revenue);
       byDate.set(r.date, cur);
     }
+    // 리포트가 아직 업로드되지 않은 날짜는 광고비 0원짜리 실제 데이터가 아니라 "집계중"이다 —
+    // 전체 업로드 데이터(브랜드 필터와 무관하게) 기준으로 이 날짜가 한 번이라도 들어왔는지로 판단한다.
+    const collectedDates = new Set(allGfaDailyRows.map((r) => r.date));
+    const latestConfirmed = gfaLatestConfirmedDate();
     const days = [];
     for (let d = from; d <= to; d = addDays(d, 1)) {
+      const pending = !collectedDates.has(d) && (!latestConfirmed || d > latestConfirmed);
       const agg = byDate.get(d) || { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
-      days.push({ ...agg, roas: roasOf(agg), cpa: cpaOf(agg) });
+      days.push({ ...agg, roas: pending ? null : roasOf(agg), cpa: pending ? null : cpaOf(agg), pending });
     }
     gfaTrendDays = days;
 
@@ -3173,9 +3276,10 @@
     }
 
     const goal = gfaFilter.brand ? gfaBrandGoal(gfaFilter.brand) : { target: GFA_ROAS_TARGET_DEFAULT, min: GFA_ROAS_MIN_DEFAULT };
-    const maxSpend = Math.max(1, ...days.map((d) => d.spend));
-    const maxRevenue = Math.max(1, ...days.map((d) => d.revenue));
-    const maxRoas = Math.max(goal.target, ...days.map((d) => d.roas)) * 1.15;
+    const confirmedDays = days.filter((d) => !d.pending);
+    const maxSpend = Math.max(1, ...confirmedDays.map((d) => d.spend));
+    const maxRevenue = Math.max(1, ...confirmedDays.map((d) => d.revenue));
+    const maxRoas = Math.max(goal.target, ...confirmedDays.map((d) => d.roas || 0)) * 1.15;
     const W = 900, H = 260, padL = 8, padR = 8, padT = 12, padB = 26;
     const plotW = W - padL - padR, plotH = H - padT - padB;
     const n = days.length;
@@ -3185,14 +3289,30 @@
     const yForRoas = (v) => padT + plotH - (v / maxRoas) * plotH;
     const yForRevenue = (v) => padT + plotH - (v / maxRevenue) * plotH * 0.9;
 
+    // 집계중 구간은 막대를 아예 그리지 않고, 선 그래프도 그 구간에서 끊어서(0으로 떨어지는 것처럼 보이지 않게) 그린다.
+    const firstPendingIdx = days.findIndex((d) => d.pending);
+    const pendingBand = firstPendingIdx >= 0
+      ? `<rect x="${(padL + (plotW / n) * firstPendingIdx).toFixed(1)}" y="0" width="${(plotW - (plotW / n) * firstPendingIdx).toFixed(1)}" height="${H}" class="sa-chart-pending-band"></rect>`
+      : '';
     const bars = days.map((d, i) => {
+      if (d.pending) return '';
       const x = xAt(i) - barW / 2;
       const y = yForSpend(d.spend);
       const h = Math.max(0, padT + plotH - y);
       return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2" class="sa-chart-bar"></rect>`;
     }).join('');
-    const roasPoints = days.map((d, i) => `${xAt(i).toFixed(1)},${yForRoas(d.roas).toFixed(1)}`).join(' ');
-    const revPoints = days.map((d, i) => `${xAt(i).toFixed(1)},${yForRevenue(d.revenue).toFixed(1)}`).join(' ');
+    function segmentedPolyline(valueKey, yFn, cssClass) {
+      const segs = [];
+      let curSeg = [];
+      days.forEach((d, i) => {
+        if (d.pending) { if (curSeg.length) { segs.push(curSeg); curSeg = []; } return; }
+        curSeg.push(`${xAt(i).toFixed(1)},${yFn(d[valueKey]).toFixed(1)}`);
+      });
+      if (curSeg.length) segs.push(curSeg);
+      return segs.map((pts) => `<polyline points="${pts.join(' ')}" class="${cssClass}"></polyline>`).join('');
+    }
+    const roasPolylines = segmentedPolyline('roas', yForRoas, 'sa-chart-line-roas');
+    const revPolylines = segmentedPolyline('revenue', yForRevenue, 'sa-chart-line-revenue');
     const targetY = yForRoas(goal.target).toFixed(1);
     const minY = yForRoas(goal.min).toFixed(1);
     const hoverTargets = days.map((d, i) => `
@@ -3200,7 +3320,8 @@
         onmouseenter="showGfaChartTooltip(event, ${i})" onmouseleave="hideGfaChartTooltip()"></rect>
     `).join('');
     const xLabels = days.map((d, i) => {
-      if (n > 14 && i % Math.ceil(n / 10) !== 0) return '';
+      if (n > 14 && i % Math.ceil(n / 10) !== 0 && !d.pending) return '';
+      if (d.pending) return `<text class="sa-chart-x-label-pending" x="${xAt(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">집계중</text>`;
       return `<text class="sa-chart-x-label" x="${xAt(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${d.date.slice(5)}</text>`;
     }).join('');
 
@@ -3211,14 +3332,17 @@
         <span class="legend-item"><span class="legend-swatch" style="background:#dc2626;"></span>ROAS</span>
         <span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #16a34a; background:none;"></span>목표 ROAS ${goal.target}%</span>
         <span class="legend-item"><span class="legend-swatch" style="border-top:2px dashed #94a3b8; background:none;"></span>최소 ROAS ${goal.min}%</span>
+        ${firstPendingIdx >= 0 ? `<span class="legend-item"><span class="legend-swatch" style="background:rgba(148,163,184,.3);"></span>집계중(리포트 미업로드)</span>` : ''}
       </div>
+      ${latestConfirmed ? `<div class="panel-note" style="margin-bottom:6px;">최근 확정 데이터: ${escapeAttr(latestConfirmed)}</div>` : ''}
       <div class="sa-chart-outer">
         <svg viewBox="0 0 ${W} ${H}" class="sa-chart-svg" preserveAspectRatio="none">
+          ${pendingBand}
           <line x1="${padL}" y1="${targetY}" x2="${W - padR}" y2="${targetY}" class="sa-chart-goal-line"></line>
           <line x1="${padL}" y1="${minY}" x2="${W - padR}" y2="${minY}" class="sa-chart-min-line"></line>
           ${bars}
-          <polyline points="${revPoints}" class="sa-chart-line-revenue"></polyline>
-          <polyline points="${roasPoints}" class="sa-chart-line-roas"></polyline>
+          ${revPolylines}
+          ${roasPolylines}
           ${hoverTargets}
           ${xLabels}
         </svg>
@@ -3231,7 +3355,10 @@
     const d = gfaTrendDays[i];
     if (!d) return;
     const tip = document.getElementById('gfaChartTooltip');
-    tip.innerHTML = `
+    tip.innerHTML = d.pending ? `
+      <div class="sa-chart-tooltip-date">${escapeAttr(d.date)}</div>
+      <div>집계중 — 아직 GFA 리포트가 업로드되지 않았어요.</div>
+    ` : `
       <div class="sa-chart-tooltip-date">${escapeAttr(d.date)}</div>
       <div>광고비 ${won(Math.round(d.spend))}</div>
       <div>전환매출 ${won(Math.round(d.revenue))}</div>
@@ -3291,42 +3418,76 @@
 
   function renderGfaDiagnosis(from, to) {
     const items = [];
+    const seenSignatures = new Set();
+    function pushItem(it) {
+      const sig = `${it.priority}|${it.brand}|${it.title}|${it.evidence}`;
+      if (seenSignatures.has(sig)) return; // 브랜드 단위 항목과 캠페인 단위 항목이 같은 내용이면 중복 제거
+      seenSignatures.add(sig);
+      items.push(it);
+    }
     const channels = GFA_CARD_BRANDS.map((b) => b.channel);
     const totalAgg = sumRows(gfaRowsForBrands(channels, from, to));
 
     for (const b of GFA_CARD_BRANDS) {
       const brandRows = gfaRowsForChannel(b.channel, from, to);
-      const agg = sumRows(brandRows);
-      if (agg.spend <= 0) continue;
-      const roas = roasOf(agg);
+      const totalBrandAgg = sumRows(brandRows);
+      if (totalBrandAgg.spend <= 0) continue;
       const goal = gfaBrandGoal(b.channel);
-      const share = totalAgg.spend > 0 ? (agg.spend / totalAgg.spend * 100) : 0;
+      const share = totalAgg.spend > 0 ? (totalBrandAgg.spend / totalAgg.spend * 100) : 0;
 
-      // 인지도/트래픽 목적만 있는 캠페인 지출은 전환 목적이 아니므로 ROAS 진단에서 뺀다
-      const hasConversionPurpose = brandRows.some((r) => r.campaign_purpose !== '인지도 및 트래픽');
-      if (hasConversionPurpose) {
-        if (roas < goal.min) {
-          items.push({ priority: '긴급', brand: b.name, title: '최소 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (최소 ${goal.min}%)`, action: '소재·타겟팅 재점검 또는 예산 축소 검토', id: gfaDiagId([from, to, b.channel, 'low-roas']) });
+      // 인지도/트래픽/도달/영상조회 목적 캠페인의 지출은 전환 목적이 아니므로 ROAS 진단에서 뺀다
+      const convAgg = gfaConversionAgg(brandRows);
+      if (convAgg.spend > 0) {
+        const roas = roasOf(convAgg);
+        if (convAgg.conversions <= 0) {
+          pushItem({ priority: '낭비', brand: b.name, title: '낭비 광고비 발생', evidence: `전환 0건, 광고비 ${won(Math.round(convAgg.spend))}`, action: '소재·타겟팅 중단 또는 예산 재배정 검토', id: gfaDiagId([from, to, b.channel, 'waste']) });
+        } else if (roas < goal.min * 0.5) {
+          pushItem({ priority: '긴급', brand: b.name, title: '최소 ROAS 크게 미달', evidence: `ROAS ${roas.toFixed(0)}% (최소 ${goal.min}%)`, action: '즉시 소재·타겟팅 재점검 또는 집행 중단 검토', id: gfaDiagId([from, to, b.channel, 'urgent']) });
+        } else if (roas < goal.min) {
+          pushItem({ priority: '비효율', brand: b.name, title: '최소 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (최소 ${goal.min}%)`, action: '소재·타겟팅 재점검 또는 예산 축소 검토', id: gfaDiagId([from, to, b.channel, 'low-roas']) });
         } else if (roas < goal.target) {
-          items.push({ priority: '주의', brand: b.name, title: '목표 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (목표 ${goal.target}%)`, action: '캠페인별 성과 확인', id: gfaDiagId([from, to, b.channel, 'below-target']) });
+          pushItem({ priority: '주의', brand: b.name, title: '목표 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (목표 ${goal.target}%)`, action: '캠페인별 성과 확인', id: gfaDiagId([from, to, b.channel, 'below-target']) });
         } else {
-          items.push({ priority: '우수', brand: b.name, title: '목표 ROAS 초과', evidence: `ROAS ${roas.toFixed(0)}%`, action: '예산 확대 검토', id: gfaDiagId([from, to, b.channel, 'above-target']) });
+          pushItem({ priority: '우수', brand: b.name, title: '목표 ROAS 초과', evidence: `ROAS ${roas.toFixed(0)}%`, action: '예산 확대 검토', id: gfaDiagId([from, to, b.channel, 'above-target']) });
         }
       }
-      if (agg.conversions > 0 && agg.revenue === 0) {
-        items.push({ priority: '확인', brand: b.name, title: '전환매출 미집계', evidence: `전환 ${agg.conversions.toLocaleString('ko-KR')}건, 매출 0원`, action: '전환 매출 연동 설정 확인', id: gfaDiagId([from, to, b.channel, 'no-revenue']) });
+      if (convAgg.conversions > 0 && convAgg.revenue === 0) {
+        pushItem({ priority: '확인', brand: b.name, title: '전환매출 미집계', evidence: `전환 ${convAgg.conversions.toLocaleString('ko-KR')}건, 매출 0원`, action: '전환 매출 연동 설정 확인', id: gfaDiagId([from, to, b.channel, 'no-revenue']) });
       }
       if (share >= 30) {
-        items.push({ priority: '확인', brand: b.name, title: '전체 광고비 비중이 높음', evidence: `광고비 ${won(Math.round(agg.spend))} (비중 ${share.toFixed(0)}%)`, action: '고비용 저효율 캠페인 확인', id: gfaDiagId([from, to, b.channel, 'high-share']) });
+        pushItem({ priority: '확인', brand: b.name, title: '전체 광고비 비중이 높음', evidence: `광고비 ${won(Math.round(totalBrandAgg.spend))} (비중 ${share.toFixed(0)}%)`, action: '고비용 저효율 캠페인 확인', id: gfaDiagId([from, to, b.channel, 'high-share']) });
       }
     }
 
-    const order = { '긴급': 0, '주의': 1, '확인': 2, '우수': 3 };
+    // 캠페인 단위 낭비·비효율 진단(광고비 상위 5개까지만 — 브랜드 단위 항목과 겹치면 위 dedup으로 자동 제거됨)
+    const campaignAgg = new Map();
+    for (const r of gfaRowsForBrands(channels, from, to)) {
+      if (!isGfaConversionPurpose(r.campaign_purpose)) continue;
+      const key = r.channel + '|' + r.campaign;
+      const cur = campaignAgg.get(key) || { channel: r.channel, campaign: r.campaign, spend: 0, conversions: 0, revenue: 0 };
+      cur.spend += Number(r.spend); cur.conversions += Number(r.conversions); cur.revenue += Number(r.revenue);
+      campaignAgg.set(key, cur);
+    }
+    const campaignList = Array.from(campaignAgg.values()).filter((c) => c.spend > 0).sort((a, b) => b.spend - a.spend).slice(0, 5);
+    for (const c of campaignList) {
+      const brandName = naverSaBrandName(c.channel);
+      const goal = gfaBrandGoal(c.channel);
+      if (c.conversions <= 0) {
+        pushItem({ priority: '낭비', brand: brandName, title: '낭비 캠페인', evidence: `전환 0건, 광고비 ${won(Math.round(c.spend))} (캠페인: ${c.campaign})`, action: '해당 캠페인 중단 또는 소재 교체 검토', id: gfaDiagId([from, to, c.channel, c.campaign, 'campaign-waste']) });
+      } else {
+        const roas = roasOf(c);
+        if (roas < goal.min) {
+          pushItem({ priority: '비효율', brand: brandName, title: '비효율 캠페인', evidence: `ROAS ${roas.toFixed(0)}% (최소 ${goal.min}%) (캠페인: ${c.campaign})`, action: '해당 캠페인 입찰가·소재 재점검', id: gfaDiagId([from, to, c.channel, c.campaign, 'campaign-inefficient']) });
+        }
+      }
+    }
+
+    const order = { '긴급': 0, '낭비': 1, '비효율': 2, '주의': 3, '확인': 4, '우수': 5 };
     items.sort((a, b) => order[a.priority] - order[b.priority]);
 
     document.getElementById('gfaDiagnosisTable').innerHTML = items.length ? items.map((it) => `
       <tr>
-        <td><span class="sa-diag-badge ${diagPriorityClass(it.priority)}">${it.priority}</span></td>
+        <td><span class="sa-diag-badge ${gfaDiagPriorityClass(it.priority)}">${it.priority}</span></td>
         <td>${escapeAttr(it.brand)}</td>
         <td>${escapeAttr(it.title)}</td>
         <td>${escapeAttr(it.evidence)}</td>
@@ -3354,18 +3515,11 @@
     }
     const campaignRows = Array.from(byCampaign.values());
 
-    const convertingRows = campaignRows.filter((r) => r.conversions > 0 && r.revenue > 0);
-    const convertingSpend = convertingRows.reduce((s, r) => s + r.spend, 0);
-    const convertingConversions = convertingRows.reduce((s, r) => s + r.conversions, 0);
-    const avgCpaConverting = convertingConversions > 0 ? (convertingSpend / convertingConversions) : 0;
-    const avgSpendAll = campaignRows.length ? campaignRows.reduce((s, r) => s + r.spend, 0) / campaignRows.length : 0;
-    const ctx = { avgCpaConverting, avgSpendAll, target: GFA_ROAS_TARGET_DEFAULT };
-
     const enriched = campaignRows.map((r, idx) => {
+      const goal = gfaBrandGoal(r.channel);
+      const isConv = isGfaConversionPurpose(r.campaign_purpose);
       const roas = roasOf(r), cpa = cpaOf(r);
-      const status = (r.campaign_purpose === '인지도 및 트래픽')
-        ? 'normal'
-        : classifySaRowStatus({ spend: r.spend, clicks: r.clicks, conversions: r.conversions, revenue: r.revenue, roas, cpa }, ctx);
+      const status = classifyGfaPerformanceStatus(r, goal, isConv);
       return {
         idx, brandName: naverSaBrandName(r.channel), campaign: r.campaign, purpose: r.campaign_purpose || '-',
         spend: r.spend, impressions: r.impressions, clicks: r.clicks, conversions: r.conversions, revenue: r.revenue,
@@ -3373,7 +3527,9 @@
       };
     }).sort((a, b) => b.spend - a.spend);
 
-    const shown = gfaCampaignShowAll ? enriched : enriched.slice(0, 10);
+    // 광고비 0원인 캠페인은 기본적으로 숨긴다("전체 보기"를 누르면 0원 캠페인까지 모두 노출)
+    const nonZero = enriched.filter((r) => r.spend > 0);
+    const shown = gfaCampaignShowAll ? enriched : nonZero.slice(0, 10);
     document.getElementById('mktNaverGfaCampaignTable').innerHTML = shown.length ? shown.map((r) => `
       <tr class="${saRowClass(r.status)}">
         <td class="sa-expand-toggle" onclick="toggleGfaCampaignDetail(${r.idx})">▸</td>
@@ -3385,7 +3541,7 @@
         <td class="num">${r.roas.toFixed(0)}%</td>
         <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
         <td class="num">${r.conversions > 0 ? won(Math.round(r.cpa)) : '-'}</td>
-        <td><span class="sa-status-tag ${r.status}">${SA_STATUS_LABEL[r.status]}</span></td>
+        <td><span class="sa-status-tag ${r.status}">${GFA_STATUS_LABEL[r.status]}</span></td>
       </tr>
       <tr class="sa-detail-row" id="gfaCampaignDetail${r.idx}" style="display:none;">
         <td colspan="10">노출 ${r.impressions.toLocaleString('ko-KR')} · 클릭 ${r.clicks.toLocaleString('ko-KR')} · CTR ${r.ctr.toFixed(2)}% · CPC ${won(Math.round(r.cpc))}</td>
@@ -3393,9 +3549,9 @@
     `).join('') : '<tr><td colspan="10" class="mkt-empty-row">선택한 기간의 캠페인 데이터가 없습니다.</td></tr>';
 
     const moreBtn = document.getElementById('gfaCampaignShowMoreBtn');
-    if (enriched.length > 10) {
+    if (enriched.length > shown.length) {
       moreBtn.style.display = '';
-      moreBtn.textContent = gfaCampaignShowAll ? '접기' : `전체 보기 (${enriched.length}개)`;
+      moreBtn.textContent = gfaCampaignShowAll ? '접기' : `전체 보기 (${enriched.length}개, 광고비 0원 포함)`;
     } else {
       moreBtn.style.display = 'none';
     }
