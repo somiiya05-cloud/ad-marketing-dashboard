@@ -217,6 +217,25 @@
   }
   .btn-primary:hover { background: #1e293b; }
   .ad-upload-status { font-size: 12px; color: #64748b; }
+
+  /* ---- 네이버SA 요약 카드 / 인사이트 칩 / 상태 표시 ---- */
+  .kpi-row-compact { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi-card-compact { padding: 14px 16px; border-radius: 12px; }
+  .kpi-card-compact .kpi-label { font-size: 11px; margin-bottom: 6px; }
+  .kpi-card-compact .kpi-value { font-size: 20px; margin-bottom: 0; }
+  .kpi-value-good { color: #16a34a; }
+  .insight-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .insight-chip { flex: 1 1 150px; background: #f8fafc; border: 1px solid rgba(15,23,42,.06); border-radius: 10px; padding: 10px 12px; }
+  .insight-chip-label { font-size: 11px; color: #64748b; font-weight: 600; margin-bottom: 4px; }
+  .insight-chip-value { font-size: 14px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .insight-chip-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .status-dot.good { background: #16a34a; }
+  .status-dot.caution { background: #d97706; }
+  .status-dot.waste { background: #dc2626; }
+  .row-good { background: rgba(22,163,74,.06); }
+  .row-caution { background: rgba(217,119,6,.07); }
+  .row-waste { background: rgba(220,38,38,.06); }
 </style>
 </head>
 <body>
@@ -441,21 +460,22 @@
       <div id="mktNaverSaContent">
         <section class="panel">
           <div class="panel-head">
-            <h2>네이버 SA</h2>
+            <h2>네이버 SA 요약</h2>
             <span class="panel-note">전 브랜드 합산 · 검색광고 자동연동</span>
           </div>
-          <div class="ad-type-row" id="mktNaverSaAdTypeCards"></div>
+          <div class="kpi-row kpi-row-compact" id="mktNaverSaSummaryCards"></div>
         </section>
 
         <section class="panel">
           <div class="panel-head">
-            <h2>브랜드별 상세 지표</h2>
-            <span class="panel-note">광고비 단위: 원 · 이 달 누적</span>
+            <h2>브랜드별 성과</h2>
+            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · ROAS 400% 이상은 우수, 100% 미만(광고비&gt;매출)은 비효율로 표시</span>
           </div>
+          <div class="insight-row" id="mktNaverSaBrandInsights"></div>
           <div class="scroll-box">
             <table>
               <thead>
-                <tr><th>브랜드</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+                <tr><th>브랜드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">CPA</th></tr>
               </thead>
               <tbody id="mktNaverSaChannelTable"></tbody>
             </table>
@@ -495,12 +515,31 @@
         <section class="panel">
           <div class="panel-head">
             <h2>키워드별 성과</h2>
-            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · 광고비 많은 순 · 전 브랜드</span>
+            <span class="panel-note">광고비 단위: 원 · 이 달 누적 · 전 브랜드</span>
+          </div>
+          <div class="insight-row" id="mktNaverSaKwInsights"></div>
+          <div class="filter-group" style="margin-bottom:10px;">
+            <select id="mktNaverSaKwBrand" class="vendor-select" onchange="setNaverSaKwBrand(this.value)"></select>
+            <select id="mktNaverSaKwCampaign" class="vendor-select" onchange="setNaverSaKwCampaign(this.value)"></select>
+            <input type="text" id="mktNaverSaKwSearch" class="vendor-select" placeholder="키워드 검색" style="max-width:160px;" oninput="setNaverSaKwSearch(this.value)">
+            <select id="mktNaverSaKwSort" class="vendor-select" onchange="setNaverSaKwSort(this.value)">
+              <option value="spend">광고비순</option>
+              <option value="conversions">전환순</option>
+              <option value="roas">ROAS순</option>
+              <option value="cpa">CPA순</option>
+            </select>
+            <button type="button" class="filter-reset-btn" onclick="resetNaverSaKwFilter()">필터 초기화</button>
+          </div>
+          <div class="filter-group" id="mktNaverSaKwTabs" style="margin-bottom:10px;">
+            <button type="button" class="ad-type-filter-btn active" data-kwtab="all" onclick="setNaverSaKwStatus('all')">전체</button>
+            <button type="button" class="ad-type-filter-btn" data-kwtab="good" onclick="setNaverSaKwStatus('good')">성과 우수</button>
+            <button type="button" class="ad-type-filter-btn" data-kwtab="caution" onclick="setNaverSaKwStatus('caution')">주의</button>
+            <button type="button" class="ad-type-filter-btn" data-kwtab="waste" onclick="setNaverSaKwStatus('waste')">낭비 키워드</button>
           </div>
           <div class="scroll-box">
             <table>
               <thead>
-                <tr><th>브랜드</th><th>키워드</th><th>캠페인</th><th>광고그룹</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th></tr>
+                <tr><th>브랜드</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>캠페인</th><th>광고그룹</th></tr>
               </thead>
               <tbody id="mktNaverSaKeywordTable"></tbody>
             </table>
@@ -512,6 +551,7 @@
             <h2>낭비 키워드</h2>
             <span class="panel-note">클릭 10건 이상인데 전환이 0건인 키워드 · 광고비 많은 순 · 전 브랜드</span>
           </div>
+          <div class="insight-row" id="mktNaverSaWasteInsights"></div>
           <div class="scroll-box">
             <table>
               <thead>
@@ -1813,22 +1853,91 @@
       revenue: acc.revenue + r.revenue,
     }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 });
 
+    // ---- 상단 SA 요약 카드 (광고비/전환매출/ROAS/클릭/전환/CPA) ----
+    const grandRoas = grandTotal.spend > 0 ? (grandTotal.revenue / grandTotal.spend * 100) : 0;
+    const grandCpa = grandTotal.conversions > 0 ? (grandTotal.spend / grandTotal.conversions) : 0;
+    document.getElementById('mktNaverSaSummaryCards').innerHTML = `
+      <div class="kpi-card kpi-card-compact">
+        <div class="kpi-label">광고비</div>
+        <div class="kpi-value mkt-value">${won(Math.round(grandTotal.spend))}</div>
+      </div>
+      <div class="kpi-card kpi-card-compact">
+        <div class="kpi-label">전환매출</div>
+        <div class="kpi-value mkt-value">${won(Math.round(grandTotal.revenue))}</div>
+      </div>
+      <div class="kpi-card kpi-card-compact">
+        <div class="kpi-label">ROAS</div>
+        <div class="kpi-value${grandRoas >= MARKETING_ROAS_TARGET ? ' kpi-value-good' : ''}">${grandRoas.toFixed(0)}%</div>
+      </div>
+      <div class="kpi-card kpi-card-compact">
+        <div class="kpi-label">클릭</div>
+        <div class="kpi-value">${grandTotal.clicks.toLocaleString('ko-KR')}</div>
+      </div>
+      <div class="kpi-card kpi-card-compact">
+        <div class="kpi-label">전환</div>
+        <div class="kpi-value">${grandTotal.conversions.toLocaleString('ko-KR')}</div>
+      </div>
+      <div class="kpi-card kpi-card-compact">
+        <div class="kpi-label">CPA</div>
+        <div class="kpi-value">${grandTotal.conversions > 0 ? won(Math.round(grandCpa)) : '-'}</div>
+      </div>
+    `;
+
+    // ---- 브랜드별 성과 표 (+ 우수/비효율 시각 구분, 상단 랭킹 인사이트) ----
+    const brandsWithRoas = channelSummaries.map((r) => ({
+      ...r,
+      roas: r.spend > 0 ? (r.revenue / r.spend * 100) : 0,
+    }));
+    const topByKey = (arr, key) => arr.length ? arr.slice().sort((a, b) => b[key] - a[key])[0] : null;
+    const topSpendBrand = topByKey(brandsWithRoas, 'spend');
+    const topRevenueBrand = topByKey(brandsWithRoas, 'revenue');
+    const topRoasBrand = topByKey(brandsWithRoas.filter((r) => r.spend > 0), 'roas');
+    const topConvBrand = topByKey(brandsWithRoas, 'conversions');
+    document.getElementById('mktNaverSaBrandInsights').innerHTML = channelSummaries.length ? `
+      <div class="insight-chip">
+        <div class="insight-chip-label">광고비 1위 브랜드</div>
+        <div class="insight-chip-value">${escapeAttr(topSpendBrand.brandName)}</div>
+        <div class="insight-chip-sub">${won(Math.round(topSpendBrand.spend))}</div>
+      </div>
+      <div class="insight-chip">
+        <div class="insight-chip-label">매출 1위 브랜드</div>
+        <div class="insight-chip-value">${escapeAttr(topRevenueBrand.brandName)}</div>
+        <div class="insight-chip-sub">${won(Math.round(topRevenueBrand.revenue))}</div>
+      </div>
+      <div class="insight-chip">
+        <div class="insight-chip-label">ROAS 1위 브랜드</div>
+        <div class="insight-chip-value">${topRoasBrand ? escapeAttr(topRoasBrand.brandName) : '-'}</div>
+        <div class="insight-chip-sub">${topRoasBrand ? topRoasBrand.roas.toFixed(0) + '%' : ''}</div>
+      </div>
+      <div class="insight-chip">
+        <div class="insight-chip-label">전환 1위 브랜드</div>
+        <div class="insight-chip-value">${escapeAttr(topConvBrand.brandName)}</div>
+        <div class="insight-chip-sub">${topConvBrand.conversions.toLocaleString('ko-KR')}건</div>
+      </div>
+    ` : '';
+
     const summaryRowHtml = (r, isTotal) => {
       const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100) : 0;
       const cpc = r.clicks > 0 ? (r.spend / r.clicks) : 0;
       const cpa = r.conversions > 0 ? (r.spend / r.conversions) : 0;
       const roas = r.spend > 0 ? (r.revenue / r.spend * 100) : 0;
+      let rowClass = '';
+      let dot = '';
+      if (!isTotal && r.spend > 0) {
+        if (roas >= MARKETING_ROAS_TARGET) { rowClass = 'row-good'; dot = '<span class="status-dot good"></span>'; }
+        else if (roas < 100) { rowClass = 'row-caution'; dot = '<span class="status-dot caution"></span>'; }
+      }
       return `
-        <tr${isTotal ? ' class="channel-total-row"' : ''}>
-          <td>${escapeAttr(r.brandName)}</td>
+        <tr class="${isTotal ? 'channel-total-row' : rowClass}">
+          <td>${dot}${escapeAttr(r.brandName)}</td>
           <td class="num">${won(Math.round(r.spend))}</td>
-          <td class="num">${r.impressions.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(Math.round(r.revenue))}</td>
+          <td class="num">${roas.toFixed(0)}%</td>
+          <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
           <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
           <td class="num">${ctr.toFixed(2)}%</td>
           <td class="num">${won(Math.round(cpc))}</td>
-          <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
-          <td class="num">${won(Math.round(cpa))}</td>
-          <td class="num">${roas.toFixed(0)}%</td>
+          <td class="num">${r.conversions > 0 ? won(Math.round(cpa)) : '-'}</td>
         </tr>
       `;
     };
@@ -1872,77 +1981,210 @@
         }).join('')
       : '<tr><td colspan="10" class="mkt-empty-row">이 달에 일별 데이터가 아직 없어요.</td></tr>';
 
-    // ---- SA 카드 (전 브랜드 합산 · GFA·파워링크는 각자 페이지에서 다룬다) ----
+    // ---- 캠페인별 성과 (전 브랜드 합산 · GFA·파워링크는 각자 페이지에서 다룬다) ----
     const campaignRows = allMarketingCampaignRows
       .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (r.ad_type || 'SA') === 'SA');
 
-    const saSpend = campaignRows.reduce((s, r) => s + Number(r.spend), 0);
-    const saRevenue = campaignRows.reduce((s, r) => s + Number(r.revenue), 0);
-    const saRoas = saSpend > 0 ? (saRevenue / saSpend * 100) : 0;
-    document.getElementById('mktNaverSaAdTypeCards').innerHTML = `
-      <div class="ad-type-card">
-        <div class="ad-type-card-label"><span class="ad-type-badge SA">SA</span></div>
-        <div class="ad-type-value">${won(Math.round(saSpend))}</div>
-        <div class="ad-type-sub">${campaignRows.length ? `매출 ${won(Math.round(saRevenue))} · ROAS ${saRoas.toFixed(0)}%` : '데이터 없음'}</div>
-      </div>
-    `;
-
     renderMarketingNaverSaCampaignTable(campaignRows.slice().sort((a, b) => Number(b.spend) - Number(a.spend)));
 
-    // ---- 키워드별 성과 / 낭비 키워드 (브랜드 열 추가) ----
-    const keywordRows = allMarketingKeywordRows
-      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr)
-      .slice()
-      .sort((a, b) => Number(b.spend) - Number(a.spend));
+    // ---- 키워드별 성과: 브랜드/캠페인/CPA 등 파생값 + 성과 상태(우수/주의/낭비)를 미리 계산해둔다 ----
+    const kwRowsRaw = allMarketingKeywordRows
+      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr);
 
-    document.getElementById('mktNaverSaKeywordTable').innerHTML = keywordRows.length
-      ? keywordRows.map((r) => {
-          const spend = Number(r.spend);
-          const impressions = Number(r.impressions);
-          const clicks = Number(r.clicks);
-          const conversions = Number(r.conversions);
-          const kCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
-          const kCpc = clicks > 0 ? (spend / clicks) : 0;
-          return `
-            <tr>
-              <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
-              <td>${escapeAttr(r.keyword)}</td>
-              <td>${escapeAttr(r.campaign)}</td>
-              <td>${escapeAttr(r.adgroup)}</td>
-              <td class="num">${won(spend)}</td>
-              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
-              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
-              <td class="num">${kCtr.toFixed(2)}%</td>
-              <td class="num">${won(Math.round(kCpc))}</td>
-              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
-            </tr>
-          `;
-        }).join('')
-      : '<tr><td colspan="10" class="mkt-empty-row">이 달에 키워드 데이터가 아직 없어요. (아직 동기화 안 된 달일 수 있어요)</td></tr>';
+    const convertingKw = kwRowsRaw.filter((r) => Number(r.conversions) > 0);
+    const convertingSpend = convertingKw.reduce((s, r) => s + Number(r.spend), 0);
+    const convertingConversions = convertingKw.reduce((s, r) => s + Number(r.conversions), 0);
+    const avgCpaConverting = convertingConversions > 0 ? (convertingSpend / convertingConversions) : 0;
+    const avgSpendAll = kwRowsRaw.length ? kwRowsRaw.reduce((s, r) => s + Number(r.spend), 0) / kwRowsRaw.length : 0;
 
-    const wasteRows = keywordRows.filter((r) => Number(r.clicks) >= WASTE_KEYWORD_MIN_CLICKS && Number(r.conversions) === 0);
+    naverSaKeywordAllRows = kwRowsRaw.map((r) => {
+      const spend = Number(r.spend);
+      const impressions = Number(r.impressions);
+      const clicks = Number(r.clicks);
+      const conversions = Number(r.conversions);
+      const revenue = Number(r.revenue);
+      const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+      const cpc = clicks > 0 ? (spend / clicks) : 0;
+      const cpa = conversions > 0 ? (spend / conversions) : 0;
+      const roas = spend > 0 ? (revenue / spend * 100) : 0;
+      let status = 'normal';
+      if (clicks >= WASTE_KEYWORD_MIN_CLICKS && conversions === 0) {
+        status = 'waste';
+      } else if (conversions > 0 && (roas >= MARKETING_ROAS_TARGET || (avgCpaConverting > 0 && cpa <= avgCpaConverting))) {
+        status = 'good';
+      } else if (avgSpendAll > 0 && spend >= avgSpendAll && (conversions === 0 || roas < MARKETING_ROAS_TARGET)) {
+        status = 'caution';
+      }
+      return {
+        channel: r.channel, brandName: naverSaBrandName(r.channel), keyword: r.keyword,
+        campaign: r.campaign, adgroup: r.adgroup,
+        spend, impressions, clicks, conversions, revenue, ctr, cpc, cpa, roas, status,
+      };
+    });
+
+    populateNaverSaKwBrandOptions();
+    populateNaverSaKwCampaignOptions();
+    syncNaverSaKwTabButtons();
+    renderNaverSaKeywordSection();
+
+    // ---- 낭비 키워드 (고정 섹션: 필터와 무관하게 항상 이 달 전체 낭비 키워드를 보여준다) ----
+    const wasteRows = naverSaKeywordAllRows.filter((r) => r.status === 'waste').sort((a, b) => b.spend - a.spend);
+    const wasteTotalSpend = wasteRows.reduce((s, r) => s + r.spend, 0);
+    document.getElementById('mktNaverSaWasteInsights').innerHTML = `
+      <div class="insight-chip">
+        <div class="insight-chip-label">낭비 키워드 개수</div>
+        <div class="insight-chip-value${wasteRows.length > 0 ? ' pct-red' : ''}">${wasteRows.length.toLocaleString('ko-KR')}개</div>
+      </div>
+      <div class="insight-chip">
+        <div class="insight-chip-label">총 낭비 광고비</div>
+        <div class="insight-chip-value${wasteTotalSpend > 0 ? ' pct-red' : ''}">${won(Math.round(wasteTotalSpend))}</div>
+      </div>
+    `;
     document.getElementById('mktNaverSaWasteKeywordTable').innerHTML = wasteRows.length
-      ? wasteRows.map((r) => {
-          const spend = Number(r.spend);
-          const impressions = Number(r.impressions);
-          const clicks = Number(r.clicks);
-          const wCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
-          const wCpc = clicks > 0 ? (spend / clicks) : 0;
-          return `
+      ? wasteRows.map((r) => `
             <tr>
-              <td>${escapeAttr(naverSaBrandName(r.channel))}</td>
+              <td>${escapeAttr(r.brandName)}</td>
               <td>${escapeAttr(r.keyword)}</td>
               <td>${escapeAttr(r.campaign)}</td>
               <td>${escapeAttr(r.adgroup)}</td>
-              <td class="num">${won(spend)}</td>
-              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
-              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
-              <td class="num">${wCtr.toFixed(2)}%</td>
-              <td class="num">${won(Math.round(wCpc))}</td>
+              <td class="num">${won(r.spend)}</td>
+              <td class="num">${r.impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${r.ctr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(r.cpc))}</td>
+            </tr>
+        `).join('')
+      : `<tr><td colspan="9" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
+  }
+
+  // ---- 키워드별 성과 표: 필터/정렬/상태탭 상태 ----
+  let naverSaKeywordAllRows = [];
+  let naverSaKwFilter = { brand: '', campaign: '', search: '', sort: 'spend', status: 'all' };
+
+  function populateNaverSaKwBrandOptions() {
+    const sel = document.getElementById('mktNaverSaKwBrand');
+    const brands = Array.from(new Set(naverSaKeywordAllRows.map((r) => r.brandName))).sort((a, b) => a.localeCompare(b));
+    sel.innerHTML = '<option value="">전체 브랜드</option>' + brands.map((b) => `<option value="${escapeAttr(b)}">${escapeAttr(b)}</option>`).join('');
+    sel.value = brands.includes(naverSaKwFilter.brand) ? naverSaKwFilter.brand : '';
+    naverSaKwFilter.brand = sel.value;
+  }
+
+  function populateNaverSaKwCampaignOptions() {
+    const sel = document.getElementById('mktNaverSaKwCampaign');
+    const pool = naverSaKwFilter.brand
+      ? naverSaKeywordAllRows.filter((r) => r.brandName === naverSaKwFilter.brand)
+      : naverSaKeywordAllRows;
+    const campaigns = Array.from(new Set(pool.map((r) => r.campaign))).sort((a, b) => a.localeCompare(b));
+    sel.innerHTML = '<option value="">전체 캠페인</option>' + campaigns.map((c) => `<option value="${escapeAttr(c)}">${escapeAttr(c)}</option>`).join('');
+    sel.value = campaigns.includes(naverSaKwFilter.campaign) ? naverSaKwFilter.campaign : '';
+    naverSaKwFilter.campaign = sel.value;
+  }
+
+  function syncNaverSaKwTabButtons() {
+    document.querySelectorAll('#mktNaverSaKwTabs .ad-type-filter-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.kwtab === naverSaKwFilter.status);
+    });
+  }
+
+  function setNaverSaKwBrand(value) {
+    naverSaKwFilter.brand = value;
+    naverSaKwFilter.campaign = '';
+    populateNaverSaKwCampaignOptions();
+    renderNaverSaKeywordSection();
+  }
+  function setNaverSaKwCampaign(value) {
+    naverSaKwFilter.campaign = value;
+    renderNaverSaKeywordSection();
+  }
+  function setNaverSaKwSearch(value) {
+    naverSaKwFilter.search = value.trim();
+    renderNaverSaKeywordSection();
+  }
+  function setNaverSaKwSort(value) {
+    naverSaKwFilter.sort = value;
+    renderNaverSaKeywordSection();
+  }
+  function setNaverSaKwStatus(status) {
+    naverSaKwFilter.status = status;
+    syncNaverSaKwTabButtons();
+    renderNaverSaKeywordSection();
+  }
+  function resetNaverSaKwFilter() {
+    naverSaKwFilter.brand = '';
+    naverSaKwFilter.campaign = '';
+    naverSaKwFilter.search = '';
+    naverSaKwFilter.sort = 'spend';
+    document.getElementById('mktNaverSaKwSearch').value = '';
+    document.getElementById('mktNaverSaKwSort').value = 'spend';
+    populateNaverSaKwBrandOptions();
+    populateNaverSaKwCampaignOptions();
+    renderNaverSaKeywordSection();
+  }
+
+  function renderNaverSaKeywordSection() {
+    let rows = naverSaKeywordAllRows;
+    if (naverSaKwFilter.status !== 'all') rows = rows.filter((r) => r.status === naverSaKwFilter.status);
+    if (naverSaKwFilter.brand) rows = rows.filter((r) => r.brandName === naverSaKwFilter.brand);
+    if (naverSaKwFilter.campaign) rows = rows.filter((r) => r.campaign === naverSaKwFilter.campaign);
+    if (naverSaKwFilter.search) {
+      const q = naverSaKwFilter.search.toLowerCase();
+      rows = rows.filter((r) => String(r.keyword).toLowerCase().includes(q));
+    }
+    rows = rows.slice().sort((a, b) => Number(b[naverSaKwFilter.sort]) - Number(a[naverSaKwFilter.sort]));
+
+    document.getElementById('mktNaverSaKeywordTable').innerHTML = rows.length
+      ? rows.map((r) => {
+          const dot = r.status === 'normal' ? '' : `<span class="status-dot ${r.status}"></span>`;
+          const rowClass = r.status === 'good' ? 'row-good' : r.status === 'caution' ? 'row-caution' : r.status === 'waste' ? 'row-waste' : '';
+          return `
+            <tr class="${rowClass}">
+              <td>${escapeAttr(r.brandName)}</td>
+              <td>${dot}${escapeAttr(r.keyword)}</td>
+              <td class="num">${won(Math.round(r.spend))}</td>
+              <td class="num">${won(Math.round(r.revenue))}</td>
+              <td class="num">${r.roas.toFixed(0)}%</td>
+              <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
+              <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${r.ctr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(r.cpc))}</td>
+              <td>${escapeAttr(r.campaign)}</td>
+              <td>${escapeAttr(r.adgroup)}</td>
             </tr>
           `;
         }).join('')
-      : `<tr><td colspan="9" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
+      : '<tr><td colspan="11" class="mkt-empty-row">조건에 맞는 키워드가 없어요.</td></tr>';
+
+    // 상단 인사이트 칩은 탭/검색과 무관하게 이 달 전체 키워드 기준으로 보여준다
+    const all = naverSaKeywordAllRows;
+    const wasteCount = all.filter((r) => r.status === 'waste').length;
+    const topSpend = topKwBy(all, 'spend');
+    const topConv = topKwBy(all.filter((r) => r.conversions > 0), 'conversions');
+    const topRoas = topKwBy(all.filter((r) => r.spend > 0 && r.conversions > 0), 'roas');
+    document.getElementById('mktNaverSaKwInsights').innerHTML = all.length ? `
+      <div class="insight-chip">
+        <div class="insight-chip-label">광고비 상위 키워드</div>
+        <div class="insight-chip-value">${topSpend ? escapeAttr(topSpend.keyword) : '-'}</div>
+        <div class="insight-chip-sub">${topSpend ? won(Math.round(topSpend.spend)) : ''}</div>
+      </div>
+      <div class="insight-chip">
+        <div class="insight-chip-label">전환 상위 키워드</div>
+        <div class="insight-chip-value">${topConv ? escapeAttr(topConv.keyword) : '-'}</div>
+        <div class="insight-chip-sub">${topConv ? topConv.conversions.toLocaleString('ko-KR') + '건' : ''}</div>
+      </div>
+      <div class="insight-chip">
+        <div class="insight-chip-label">ROAS 상위 키워드</div>
+        <div class="insight-chip-value">${topRoas ? escapeAttr(topRoas.keyword) : '-'}</div>
+        <div class="insight-chip-sub">${topRoas ? topRoas.roas.toFixed(0) + '%' : ''}</div>
+      </div>
+      <div class="insight-chip">
+        <div class="insight-chip-label">낭비 키워드 수</div>
+        <div class="insight-chip-value${wasteCount > 0 ? ' pct-red' : ''}">${wasteCount.toLocaleString('ko-KR')}개</div>
+      </div>
+    ` : '';
+  }
+
+  function topKwBy(arr, key) {
+    return arr.length ? arr.slice().sort((a, b) => b[key] - a[key])[0] : null;
   }
 
   function renderMarketingNaverSaCampaignTable(campaignRows) {
