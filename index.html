@@ -631,16 +631,8 @@
       <div id="mktNaverSaContent">
         <section class="panel">
           <div class="panel-head">
-            <h2>네이버 SA+파워링크 요약</h2>
-            <span class="panel-note">선택한 기간 · 8개 브랜드 합산 · SA+파워링크 합산 · 검색광고 자동연동</span>
-          </div>
-          <div class="kpi-row kpi-row-compact" id="mktNaverSaSummaryCards"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
             <h2>브랜드별 성과</h2>
-            <span class="panel-note">SA+파워링크 합산 · 브랜드 카드를 클릭하면 아래 전체 영역이 그 브랜드 기준으로 필터링됩니다</span>
+            <span class="panel-note">선택한 기간 · SA+파워링크 합산 · 검색광고 자동연동 · 브랜드 카드를 클릭하면 아래 전체 영역이 그 브랜드 기준으로 필터링됩니다</span>
           </div>
           <div class="brand-card-grid" id="saBrandCards"></div>
         </section>
@@ -2297,9 +2289,6 @@
   function renderSaDashboard() {
     const { from, to } = currentSaRange();
     const cmp = getComparisonRange(saFilter.compare, from, to);
-    const brandChannels = SA_CARD_BRANDS.map((b) => b.channel);
-    const curRows = saDailyRowsForBrands(brandChannels, from, to);
-    const cmpRows = saDailyRowsForBrands(brandChannels, cmp.from, cmp.to);
 
     const allNaverDaily = allMarketingDailyRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.updated_at);
     const lastUpdated = allNaverDaily.length
@@ -2314,27 +2303,11 @@
     document.getElementById('mktNaverSaSubtitle').textContent =
       `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS_DISPLAY.length}개 중 데이터 있는 브랜드 기준`;
 
-    renderSaSummaryCards(curRows, cmpRows);
     renderSaBrandCards(from, to, cmp);
     renderSaBrandDetail(from, to, cmp);
     renderSaTrendChart(from, to);
     renderSaDiagnosis(from, to);
     if (document.getElementById('saDailyTableWrap').style.display !== 'none') renderSaDailyTable();
-  }
-
-  function renderSaSummaryCards(curRows, cmpRows) {
-    const cur = sumRows(curRows);
-    const cmp = sumRows(cmpRows);
-    const curRoas = roasOf(cur), cmpRoas = roasOf(cmp);
-    const curCpa = cpaOf(cur), cmpCpa = cpaOf(cmp);
-    document.getElementById('mktNaverSaSummaryCards').innerHTML = [
-      saKpiCard('광고비', won(Math.round(cur.spend)), deltaLine(cur.spend, cmp.spend, { unit: 'won', neutral: true })),
-      saKpiCard('전환매출', won(Math.round(cur.revenue)), deltaLine(cur.revenue, cmp.revenue, { unit: 'won' })),
-      saKpiCard('ROAS', curRoas.toFixed(0) + '%', deltaLine(curRoas, cmpRoas, { unit: 'pp' }), curRoas >= SA_ROAS_TARGET_DEFAULT ? 'kpi-value-good' : ''),
-      saKpiCard('클릭', cur.clicks.toLocaleString('ko-KR'), deltaLine(cur.clicks, cmp.clicks, { unit: 'pct' })),
-      saKpiCard('전환', cur.conversions.toLocaleString('ko-KR'), deltaLine(cur.conversions, cmp.conversions, { unit: 'pct' })),
-      saKpiCard('CPA', cur.conversions > 0 ? won(Math.round(curCpa)) : '-', (cur.conversions > 0 && cmp.conversions > 0) ? deltaLine(curCpa, cmpCpa, { unit: 'won', neutral: true }) : ''),
-    ].join('');
   }
 
   function renderSaBrandCards(from, to, cmp) {
