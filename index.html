@@ -546,7 +546,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" id="mktNaverSaWasteSection">
           <div class="panel-head">
             <h2>낭비 키워드</h2>
             <span class="panel-note">클릭 10건 이상인데 전환이 0건인 키워드 · 광고비 많은 순 · 전 브랜드</span>
@@ -1830,10 +1830,7 @@
     const monthRows = allMarketingRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr);
     const channels = Array.from(new Set(monthRows.map((r) => r.channel))).sort();
 
-    document.getElementById('mktNaverSaSubtitle').textContent =
-      monthStr + ' · 브랜드 ' + channels.length.toLocaleString('ko-KR') + '개';
-
-    // ---- 브랜드별 상세 지표 (+ 합계) ----
+    // ---- 브랜드별 상세 지표 (+ 합계) : 광고비·노출·클릭·전환·매출이 전부 0인 브랜드는 표시하지 않는다 ----
     const channelSummaries = channels.map((channel) => {
       const cRows = monthRows.filter((r) => r.channel === channel);
       return {
@@ -1844,7 +1841,11 @@
         conversions: cRows.reduce((s, r) => s + Number(r.conversions), 0),
         revenue: cRows.reduce((s, r) => s + Number(r.revenue), 0),
       };
-    });
+    }).filter((r) => r.spend > 0 || r.impressions > 0 || r.clicks > 0 || r.conversions > 0 || r.revenue > 0);
+
+    document.getElementById('mktNaverSaSubtitle').textContent =
+      monthStr + ' · 브랜드 ' + channelSummaries.length.toLocaleString('ko-KR') + '개';
+
     const grandTotal = channelSummaries.reduce((acc, r) => ({
       spend: acc.spend + r.spend,
       impressions: acc.impressions + r.impressions,
@@ -2027,8 +2028,12 @@
     syncNaverSaKwTabButtons();
     renderNaverSaKeywordSection();
 
-    // ---- 낭비 키워드 (고정 섹션: 필터와 무관하게 항상 이 달 전체 낭비 키워드를 보여준다) ----
+    // ---- 낭비 키워드 (고정 섹션: 필터와 무관하게 항상 이 달 전체 낭비 키워드를 보여준다. 없으면 섹션째로 숨긴다) ----
     const wasteRows = naverSaKeywordAllRows.filter((r) => r.status === 'waste').sort((a, b) => b.spend - a.spend);
+    const wasteSectionEl = document.getElementById('mktNaverSaWasteSection');
+    wasteSectionEl.style.display = wasteRows.length ? '' : 'none';
+    if (!wasteRows.length) return;
+
     const wasteTotalSpend = wasteRows.reduce((s, r) => s + r.spend, 0);
     document.getElementById('mktNaverSaWasteInsights').innerHTML = `
       <div class="insight-chip">
@@ -2040,8 +2045,7 @@
         <div class="insight-chip-value${wasteTotalSpend > 0 ? ' pct-red' : ''}">${won(Math.round(wasteTotalSpend))}</div>
       </div>
     `;
-    document.getElementById('mktNaverSaWasteKeywordTable').innerHTML = wasteRows.length
-      ? wasteRows.map((r) => `
+    document.getElementById('mktNaverSaWasteKeywordTable').innerHTML = wasteRows.map((r) => `
             <tr>
               <td>${escapeAttr(r.brandName)}</td>
               <td>${escapeAttr(r.keyword)}</td>
@@ -2053,8 +2057,7 @@
               <td class="num">${r.ctr.toFixed(2)}%</td>
               <td class="num">${won(Math.round(r.cpc))}</td>
             </tr>
-        `).join('')
-      : `<tr><td colspan="9" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
+        `).join('');
   }
 
   // ---- 키워드별 성과 표: 필터/정렬/상태탭 상태 ----
