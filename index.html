@@ -631,17 +631,10 @@
       <div id="mktNaverSaContent">
         <section class="panel">
           <div class="panel-head">
-            <h2>브랜드별 성과</h2>
-            <span class="panel-note">선택한 기간 · SA+파워링크 합산 · 검색광고 자동연동 · 브랜드 카드를 클릭하면 아래 전체 영역이 그 브랜드 기준으로 필터링됩니다</span>
-          </div>
-          <div class="brand-card-grid" id="saBrandCards"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2 id="saBrandDetailTitle">선택 브랜드 핵심 지표</h2>
+            <h2 id="saBrandDetailTitle">전체 브랜드 핵심 지표</h2>
             <span class="panel-note" id="saBrandDetailNote"></span>
           </div>
+          <div class="filter-group" id="saBrandTabs" style="margin-bottom:14px;"></div>
           <div class="kpi-row kpi-row-compact" id="saBrandDetailCards"></div>
         </section>
 
@@ -2115,15 +2108,6 @@
     }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 });
   }
 
-  function classifyBrandStatus(channel, agg) {
-    if (!agg || agg.spend <= 0) return 'no-data';
-    const { target, min } = brandGoal(channel);
-    const roas = roasOf(agg);
-    if (roas >= target) return 'good';
-    if (roas >= min) return 'caution';
-    return 'inefficient';
-  }
-
   // 캠페인/키워드 행 성과 상태 판정을 한 곳에서 공유 (waste > no-revenue > good > caution > normal 순으로 판정)
   function classifySaRowStatus(row, ctx) {
     if (row.clicks >= WASTE_KEYWORD_MIN_CLICKS && row.conversions === 0) return 'waste';
@@ -2303,45 +2287,23 @@
     document.getElementById('mktNaverSaSubtitle').textContent =
       `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS_DISPLAY.length}개 중 데이터 있는 브랜드 기준`;
 
-    renderSaBrandCards(from, to, cmp);
+    renderSaBrandTabs();
     renderSaBrandDetail(from, to, cmp);
     renderSaTrendChart(from, to);
     renderSaDiagnosis(from, to);
     if (document.getElementById('saDailyTableWrap').style.display !== 'none') renderSaDailyTable();
   }
 
-  function renderSaBrandCards(from, to, cmp) {
-    const statusLabel = { good: '우수', caution: '주의', inefficient: '비효율', 'no-data': '데이터 없음' };
-    document.getElementById('saBrandCards').innerHTML = SA_CARD_BRANDS_DISPLAY.map((b) => {
-      const curAgg = sumRows(saDailyRowsForChannel(b.channel, from, to));
-      const cmpAgg = sumRows(saDailyRowsForChannel(b.channel, cmp.from, cmp.to));
-      const status = classifyBrandStatus(b.channel, curAgg);
-      const roas = roasOf(curAgg), cmpRoas = roasOf(cmpAgg);
-      const isSelected = saFilter.brand === b.channel;
-      return `
-        <div class="brand-card status-${status}${isSelected ? ' selected' : ''}" onclick="toggleSaBrand('${escapeAttr(b.channel)}')">
-          <div class="brand-card-head">
-            <span class="brand-card-name">${escapeAttr(b.name)}</span>
-            <span class="brand-card-status status-${status}">${statusLabel[status]}</span>
-          </div>
-          ${status === 'no-data' ? `
-            <div class="brand-card-empty">이 기간 데이터가 없어요.</div>
-          ` : `
-            <div class="brand-card-metric"><span class="brand-card-metric-label">전환매출</span><span class="brand-card-metric-value">${won(Math.round(curAgg.revenue))}</span></div>
-            <div class="brand-card-metric"><span class="brand-card-metric-label">광고비</span><span class="brand-card-metric-value">${won(Math.round(curAgg.spend))}</span></div>
-            <div class="brand-card-metric"><span class="brand-card-metric-label">ROAS</span><span class="brand-card-metric-value">${roas.toFixed(0)}%</span></div>
-            <div class="brand-card-metric"><span class="brand-card-metric-label">전환</span><span class="brand-card-metric-value">${curAgg.conversions.toLocaleString('ko-KR')}건</span></div>
-            <div class="brand-card-delta">${escapeAttr(compareLabel(saFilter.compare))} ROAS ${deltaLine(roas, cmpRoas, { unit: 'pp' })}</div>
-          `}
-          <div class="brand-card-link">상세보기 →</div>
-        </div>
-      `;
-    }).join('');
+  // 브랜드별 핵심 지표를 탭으로 전환("전체" + 브랜드별) — 탭을 누르면 바로 아래 kpi 카드가 그 브랜드 기준으로 바뀐다.
+  function renderSaBrandTabs() {
+    const tabs = [{ channel: '', name: '전체' }, ...SA_CARD_BRANDS_DISPLAY];
+    document.getElementById('saBrandTabs').innerHTML = tabs.map((b) => `
+      <button type="button" class="ad-type-filter-btn${saFilter.brand === b.channel ? ' active' : ''}" onclick="selectSaBrandTab('${escapeAttr(b.channel)}')">${escapeAttr(b.name)}</button>
+    `).join('');
   }
-
-  function toggleSaBrand(channel) {
-    saFilter.brand = saFilter.brand === channel ? '' : channel;
-    document.getElementById('saBrandSelect').value = saFilter.brand;
+  function selectSaBrandTab(channel) {
+    saFilter.brand = channel;
+    document.getElementById('saBrandSelect').value = channel;
     renderSaDashboard();
   }
   function setSaBrand(value) {
