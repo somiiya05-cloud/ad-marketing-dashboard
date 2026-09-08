@@ -577,51 +577,12 @@
       </div>
 
       <div class="sa-filter-bar">
-        <div class="filter-group">
-          <div class="sa-filter-field">
-            <span class="sa-filter-field-label">조회 기간</span>
-            <select id="saPeriodSelect" class="vendor-select" onchange="setSaPeriod(this.value)">
-              <option value="today">오늘</option>
-              <option value="yesterday">어제</option>
-              <option value="last7">최근 7일</option>
-              <option value="thisMonth" selected>이번 달</option>
-              <option value="lastMonth">지난달</option>
-              <option value="custom">직접 설정</option>
-            </select>
-          </div>
-          <div class="sa-filter-field" id="saCustomDateWrap" style="display:none;">
-            <input type="date" id="saCustomFrom" class="date-input" onchange="setSaCustomRange()">
-            <span class="date-range-sep">~</span>
-            <input type="date" id="saCustomTo" class="date-input" onchange="setSaCustomRange()">
-          </div>
-          <div class="sa-filter-field">
-            <span class="sa-filter-field-label">브랜드</span>
-            <select id="saBrandSelect" class="vendor-select" onchange="setSaBrand(this.value)">
-              <option value="">전체 브랜드</option>
-              <option value="네이버 코드니처">코드니처</option>
-              <option value="네이버 빠이러스">빠이러스</option>
-              <option value="네이버 명퉤">명퉤</option>
-              <option value="네이버 잠비에">잠비에</option>
-              <option value="네이버 미니멀룸">미니멀룸</option>
-              <option value="네이버 글로리핏">글로리핏</option>
-              <option value="네이버 그로우유즈">그로우뮤즈</option>
-              <option value="네이버 라스마">라이프스타일마트</option>
-            </select>
-          </div>
-          <div class="sa-filter-field">
-            <span class="sa-filter-field-label">비교 기준</span>
-            <select id="saCompareSelect" class="vendor-select" onchange="setSaCompare(this.value)">
-              <option value="prevPeriod">전일 대비</option>
-              <option value="prev7">직전 7일 대비</option>
-              <option value="prevMonth">전월 대비</option>
-            </select>
-          </div>
-          <button type="button" class="filter-reset-btn" onclick="resetSaFilters()">필터 초기화</button>
+        <div class="filter-group" id="saPeriodTabs">
+          <button type="button" class="ad-type-filter-btn" data-saperiod="thisMonth" onclick="setSaPeriod('thisMonth')">한달</button>
+          <button type="button" class="ad-type-filter-btn" data-saperiod="last3" onclick="setSaPeriod('last3')">3일</button>
           <button type="button" class="btn-primary" id="saManualSyncBtn" onclick="triggerSaManualSync()">지금 동기화</button>
           <span class="sa-filter-meta-item" id="saManualSyncStatus"></span>
         </div>
-        <div class="sa-filter-meta" id="saFilterMeta"></div>
-        <div class="sa-filter-note">캠페인·키워드·낭비 키워드 표는 일별 데이터가 없어 아래 "상세 성과"에서 월 단위로 따로 조회합니다. 위 요약·브랜드카드·그래프·진단은 SA+파워링크 합산이고, "상세 성과 › 캠페인 성과" 탭만 SA만 따로 볼 수 있습니다.</div>
       </div>
 
       <div id="mktNaverSaEmpty" class="mkt-empty" style="display:none">
@@ -2140,6 +2101,7 @@
     if (period === 'today') return { from: today, to: today };
     if (period === 'yesterday') { const y = addDays(today, -1); return { from: y, to: y }; }
     if (period === 'last7') return { from: addDays(today, -6), to: today };
+    if (period === 'last3') return { from: addDays(today, -2), to: today };
     if (period === 'thisMonth') return { from: today.slice(0, 8) + '01', to: today };
     if (period === 'lastMonth') {
       const d = new Date(today + 'T00:00:00Z');
@@ -2170,7 +2132,7 @@
       : getPeriodRange(saFilter.period);
   }
   function periodLabel(period, from, to) {
-    const map = { today: '오늘', yesterday: '어제', last7: '최근 7일', thisMonth: '이번 달', lastMonth: '지난달', custom: '직접 설정' };
+    const map = { today: '오늘', yesterday: '어제', last7: '최근 7일', last3: '최근 3일', thisMonth: '이번 달', lastMonth: '지난달', custom: '직접 설정' };
     return `${map[period] || period} (${from}${from !== to ? ' ~ ' + to : ''})`;
   }
   function compareLabel(c) {
@@ -2233,7 +2195,7 @@
   }
 
   // ==================== 네이버SA 대시보드: 상태 ====================
-  let saFilter = { period: 'thisMonth', customFrom: '', customTo: '', brand: '', compare: 'prevPeriod' };
+  let saFilter = { period: 'thisMonth', brand: '', compare: 'prevPeriod' };
   let saTrendDays = [];
   let saCampaignAllRows = [];
   let saCampaignShowAll = false;
@@ -2278,15 +2240,11 @@
     const lastUpdated = allNaverDaily.length
       ? allNaverDaily.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), allNaverDaily[0].updated_at)
       : null;
-    document.getElementById('saFilterMeta').innerHTML = `
-      <span class="sa-filter-meta-item">📅 ${escapeAttr(periodLabel(saFilter.period, from, to))}</span>
-      <span class="sa-filter-meta-item">비교: ${escapeAttr(compareLabel(saFilter.compare))} (${cmp.from} ~ ${cmp.to})</span>
-      ${lastUpdated ? `<span class="sa-filter-meta-item">마지막 업데이트: ${escapeAttr(formatUpdatedAt(lastUpdated))}</span>` : ''}
-    `;
 
     document.getElementById('mktNaverSaSubtitle').textContent =
-      `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS_DISPLAY.length}개 중 데이터 있는 브랜드 기준`;
+      `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS_DISPLAY.length}개 중 데이터 있는 브랜드 기준${lastUpdated ? ` · 마지막 업데이트: ${formatUpdatedAt(lastUpdated)}` : ''}`;
 
+    renderSaPeriodTabs();
     renderSaBrandTabs();
     renderSaBrandDetail(from, to, cmp);
     renderSaTrendChart(from, to);
@@ -2303,43 +2261,15 @@
   }
   function selectSaBrandTab(channel) {
     saFilter.brand = channel;
-    document.getElementById('saBrandSelect').value = channel;
     renderSaDashboard();
   }
-  function setSaBrand(value) {
-    saFilter.brand = value;
-    renderSaDashboard();
+  function renderSaPeriodTabs() {
+    document.querySelectorAll('#saPeriodTabs .ad-type-filter-btn').forEach((btn) => {
+      btn.classList.toggle('active', saFilter.period === btn.dataset.saperiod);
+    });
   }
   function setSaPeriod(value) {
     saFilter.period = value;
-    document.getElementById('saCustomDateWrap').style.display = value === 'custom' ? '' : 'none';
-    if (value === 'custom' && !saFilter.customFrom) {
-      const r = getPeriodRange('thisMonth');
-      saFilter.customFrom = r.from; saFilter.customTo = r.to;
-      document.getElementById('saCustomFrom').value = r.from;
-      document.getElementById('saCustomTo').value = r.to;
-    }
-    renderSaDashboard();
-  }
-  function setSaCustomRange() {
-    let from = document.getElementById('saCustomFrom').value;
-    let to = document.getElementById('saCustomTo').value;
-    if (from && to && from > to) { const t = from; from = to; to = t; }
-    saFilter.customFrom = from; saFilter.customTo = to;
-    document.getElementById('saCustomFrom').value = from;
-    document.getElementById('saCustomTo').value = to;
-    renderSaDashboard();
-  }
-  function setSaCompare(value) {
-    saFilter.compare = value;
-    renderSaDashboard();
-  }
-  function resetSaFilters() {
-    saFilter = { period: 'thisMonth', customFrom: '', customTo: '', brand: '', compare: 'prevPeriod' };
-    document.getElementById('saPeriodSelect').value = 'thisMonth';
-    document.getElementById('saCustomDateWrap').style.display = 'none';
-    document.getElementById('saBrandSelect').value = '';
-    document.getElementById('saCompareSelect').value = 'prevPeriod';
     renderSaDashboard();
   }
 
