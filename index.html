@@ -1271,7 +1271,7 @@
       group.items.push({ channel: b.channel, brandName });
     });
 
-    container.innerHTML = groups.map((g) => {
+    container.innerHTML = groups.filter((g) => g.media !== '메타').map((g) => {
       const collapsed = localStorage.getItem('mktSubgroupCollapsed_' + g.media) === '1';
       const combinedItem = g.media === '네이버'
         ? `
