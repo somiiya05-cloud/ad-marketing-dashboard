@@ -718,7 +718,7 @@
             <div class="scroll-box">
               <table>
                 <thead>
-                  <tr><th>브랜드</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>캠페인</th><th>광고그룹</th></tr>
+                  <tr><th>브랜드</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>캠페인</th><th>광고그룹</th><th>판매채널</th></tr>
                 </thead>
                 <tbody id="mktNaverSaKeywordTable"></tbody>
               </table>
@@ -731,7 +731,7 @@
             <div class="scroll-box">
               <table>
                 <thead>
-                  <tr><th>브랜드</th><th>키워드</th><th>캠페인</th><th>광고그룹</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>추천 조치</th><th>처리 상태</th></tr>
+                  <tr><th>브랜드</th><th>키워드</th><th>캠페인</th><th>광고그룹</th><th>판매채널</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>추천 조치</th><th>처리 상태</th></tr>
                 </thead>
                 <tbody id="mktNaverSaWasteKeywordTable"></tbody>
               </table>
@@ -2029,6 +2029,13 @@
   function saRowClass(status) {
     return status === 'good' ? 'row-good' : status === 'caution' ? 'row-caution' : status === 'waste' ? 'row-waste' : status === 'no-revenue' ? 'row-no-revenue' : '';
   }
+  // 랜딩 URL이 아직 동기화 안 된 과거 데이터(이 기능 추가 이전)는 "확인중"으로 표시한다.
+  function saSalesChannelBadge(r) {
+    if (!r.salesChannel) return '<span class="sa-status-tag normal">확인중</span>';
+    const cls = r.salesChannel === '스마트스토어' ? 'caution' : 'good';
+    const title = r.landingUrl ? escapeAttr(r.landingUrl) : '';
+    return `<span class="sa-status-tag ${cls}" title="${title}">${escapeAttr(r.salesChannel)}</span>`;
+  }
 
   function dateStr(d) { return d.toISOString().slice(0, 10); }
   function addDays(dateISO, n) {
@@ -2527,7 +2534,7 @@
       const status = classifySaRowStatus({ spend, clicks, conversions, revenue, roas, cpa }, kwCtx);
       return {
         channel: r.channel, brandName: naverSaBrandName(r.channel), keyword_id: r.keyword_id, keyword: r.keyword,
-        campaign: r.campaign, adgroup: r.adgroup,
+        campaign: r.campaign, adgroup: r.adgroup, salesChannel: r.sales_channel || null, landingUrl: r.landing_url || null,
         spend, impressions, clicks, conversions, revenue,
         ctr: ctrOf({ impressions, clicks }), cpc: cpcOf({ clicks, spend }), cpa, roas, status,
       };
@@ -2707,10 +2714,11 @@
               <td class="num">${won(Math.round(r.cpc))}</td>
               <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
               <td class="sa-truncate" title="${escapeAttr(r.adgroup)}">${escapeAttr(r.adgroup)}</td>
+              <td>${saSalesChannelBadge(r)}</td>
             </tr>
           `;
         }).join('')
-      : '<tr><td colspan="11" class="mkt-empty-row">조건에 맞는 키워드가 없어요.</td></tr>';
+      : '<tr><td colspan="12" class="mkt-empty-row">조건에 맞는 키워드가 없어요.</td></tr>';
 
     const moreBtn = document.getElementById('saKeywordShowMoreBtn');
     if (totalCount > 10) {
@@ -2790,6 +2798,7 @@
           <td>${escapeAttr(r.keyword)}</td>
           <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
           <td class="sa-truncate" title="${escapeAttr(r.adgroup)}">${escapeAttr(r.adgroup)}</td>
+          <td>${saSalesChannelBadge(r)}</td>
           <td class="num">${won(r.spend)}</td>
           <td class="num">${r.impressions.toLocaleString('ko-KR')}</td>
           <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
@@ -2803,7 +2812,7 @@
           </td>
         </tr>
       `;
-    }).join('') : `<tr><td colspan="11" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
+    }).join('') : `<tr><td colspan="12" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
   }
 
   // ==================== 네이버GFA / 네이버파워링크 (전 브랜드 통합, 캠페인 업로드 데이터 기준) ====================
