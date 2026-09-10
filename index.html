@@ -1314,14 +1314,29 @@
   // 완전히 별개(naver_keyword_campaign_daily.sql), sync-naver-keywords.js의 mode=daily가 채운다.
   let allSaKeywordDailyRows = [];
   let allSaCampaignDailyRows = [];
+  // Supabase(PostgREST)는 한 번에 최대 1000행만 돌려주므로, 키워드 일별 데이터처럼
+  // 1000행을 넘을 수 있는 테이블은 .range()로 끝까지 페이지네이션해서 가져와야 한다.
+  async function fetchAllRows(table, orderCol) {
+    const PAGE = 1000;
+    let all = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await client.from(table).select('*').order(orderCol, { ascending: true }).range(from, from + PAGE - 1);
+      if (error) return [];
+      all = all.concat(data || []);
+      if (!data || data.length < PAGE) break;
+      from += PAGE;
+    }
+    return all;
+  }
   async function loadSaDetailDailyData() {
     try {
       const [kw, camp] = await Promise.all([
-        client.from('naver_keyword_performance_daily').select('*').order('date', { ascending: true }),
-        client.from('naver_campaign_performance_daily').select('*').order('date', { ascending: true }),
+        fetchAllRows('naver_keyword_performance_daily', 'date'),
+        fetchAllRows('naver_campaign_performance_daily', 'date'),
       ]);
-      allSaKeywordDailyRows = kw.error ? [] : (kw.data || []);
-      allSaCampaignDailyRows = camp.error ? [] : (camp.data || []);
+      allSaKeywordDailyRows = kw;
+      allSaCampaignDailyRows = camp;
     } catch (e) {
       allSaKeywordDailyRows = [];
       allSaCampaignDailyRows = [];
@@ -2611,7 +2626,12 @@
     saKeywordShowAll = false;
     renderNaverSaKeywordSection();
 
-    renderSaWasteTab(to);
+    // 연속 무전환 일수는 실제로 동기화된 마지막 날짜부터 거슬러 세야 한다(오늘은 아직
+    // 어제치 동기화 전이라 데이터가 없는 게 정상 — 그 날을 기준으로 잡으면 항상 0일로 나옴).
+    const latestConfirmedDate = allSaKeywordDailyRows.length
+      ? allSaKeywordDailyRows.reduce((max, r) => (r.date > max ? r.date : max), allSaKeywordDailyRows[0].date)
+      : to;
+    renderSaWasteTab(to < latestConfirmedDate ? to : latestConfirmedDate);
   }
 
   function setSaDetailTab(tab) {
