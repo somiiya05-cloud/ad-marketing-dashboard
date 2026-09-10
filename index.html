@@ -2965,7 +2965,6 @@
     const curConv = gfaConversionAgg(curRows);
     const cmpConv = gfaConversionAgg(cmpRows);
     const curRoas = roasOf(curConv), cmpRoas = roasOf(cmpConv);
-    const curCpa = cpaOf(curConv), cmpCpa = cpaOf(cmpConv);
     const hasCmpRows = cmpRows.length > 0;
     const hasCmpConvRows = cmpConv.spend > 0 || cmpConv.conversions > 0;
 
@@ -2990,9 +2989,6 @@
       saKpiCard('광고비', won(Math.round(cur.spend)), deltaLineOrNoData(cur.spend, cmp.spend, hasCmpRows, { unit: 'won', neutral: true })),
       saKpiCard('전환매출', won(Math.round(curConv.revenue)), deltaLineOrNoData(curConv.revenue, cmpConv.revenue, hasCmpConvRows, { unit: 'won' })),
       saKpiCard('ROAS', curRoas.toFixed(0) + '%', deltaLineOrNoData(curRoas, cmpRoas, hasCmpConvRows, { unit: 'pp' }), curRoas >= GFA_ROAS_TARGET_DEFAULT ? 'kpi-value-good' : ''),
-      saKpiCard('클릭', cur.clicks.toLocaleString('ko-KR'), deltaLineOrNoData(cur.clicks, cmp.clicks, hasCmpRows, { unit: 'pct' })),
-      saKpiCard('전환', curConv.conversions.toLocaleString('ko-KR'), deltaLineOrNoData(curConv.conversions, cmpConv.conversions, hasCmpConvRows, { unit: 'pct' })),
-      saKpiCard('CPA', curConv.conversions > 0 ? won(Math.round(curCpa)) : '-', (curConv.conversions > 0 && cmpConv.conversions > 0) ? deltaLine(curCpa, cmpCpa, { unit: 'won', invert: true }) : ''),
       saKpiCard('비효율·낭비 광고비', won(Math.round(inefficientSpend)), `<span class="delta-neutral">전체 광고비의 ${inefficientShare.toFixed(1)}%</span>`),
     ].join('');
   }
