@@ -637,9 +637,8 @@
           <div class="panel-head">
             <div>
               <h2>상세 성과</h2>
-              <span class="panel-note" id="saDetailNote">월 단위 데이터 · 전 브랜드 · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산</span>
+              <span class="panel-note" id="saDetailNote">전 브랜드 · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산</span>
             </div>
-            <select id="mktNaverSaMonthSelect" class="month-select"></select>
           </div>
           <div class="filter-group" id="saDetailTabs" style="margin-bottom:14px;">
             <button type="button" class="ad-type-filter-btn active" data-satab="campaign" onclick="setSaDetailTab('campaign')">캠페인 성과</button>
@@ -1007,7 +1006,7 @@
       Promise.all([loadMarketingData(), loadMarketingCampaignData()]).then(() => renderMarketingNaverCombinedView());
     }
     if (view === 'marketing-naver-sa') {
-      Promise.all([loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData(), loadMarketingDailyData()]).then(() => renderMarketingNaverSaView());
+      Promise.all([loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData(), loadMarketingDailyData(), loadSaDetailDailyData()]).then(() => renderMarketingNaverSaView());
     }
     if (view === 'marketing-naver-gfa') {
       loadGfaDailyData().then(() => renderMarketingGfaView());
@@ -1308,6 +1307,24 @@
       allMarketingKeywordRows = error ? [] : (data || []);
     } catch (e) {
       allMarketingKeywordRows = [];
+    }
+  }
+
+  // 상세 성과(캠페인/키워드/낭비 키워드)를 일 단위로 보여주기 위한 데이터 — 위 월간 테이블과
+  // 완전히 별개(naver_keyword_campaign_daily.sql), sync-naver-keywords.js의 mode=daily가 채운다.
+  let allSaKeywordDailyRows = [];
+  let allSaCampaignDailyRows = [];
+  async function loadSaDetailDailyData() {
+    try {
+      const [kw, camp] = await Promise.all([
+        client.from('naver_keyword_performance_daily').select('*').order('date', { ascending: true }),
+        client.from('naver_campaign_performance_daily').select('*').order('date', { ascending: true }),
+      ]);
+      allSaKeywordDailyRows = kw.error ? [] : (kw.data || []);
+      allSaCampaignDailyRows = camp.error ? [] : (camp.data || []);
+    } catch (e) {
+      allSaKeywordDailyRows = [];
+      allSaCampaignDailyRows = [];
     }
   }
 
@@ -2215,22 +2232,6 @@
     }
     document.getElementById('mktNaverSaEmpty').style.display = 'none';
     document.getElementById('mktNaverSaContent').style.display = '';
-
-    // 상세 성과(캠페인/키워드/낭비)는 월 단위 데이터라 별도 월 선택으로 관리한다.
-    const months = Array.from(new Set(
-      allMarketingRows.filter((r) => r.channel && r.channel.startsWith('네이버')).map((r) => r.month)
-    )).sort();
-    const monthSelect = document.getElementById('mktNaverSaMonthSelect');
-    const prevSelected = monthSelect.value;
-    monthSelect.innerHTML = months.map((m) => {
-      const [y, mm] = m.split('-');
-      return `<option value="${m}">${y}년 ${Number(mm)}월</option>`;
-    }).join('');
-    const monthToShow = months.includes(prevSelected) ? prevSelected : months[months.length - 1];
-    monthSelect.value = monthToShow;
-    monthSelect.onchange = () => renderSaDetailMonth(monthSelect.value);
-
-    if (monthToShow) renderSaDetailMonth(monthToShow);
     renderSaDashboard();
   }
 
@@ -2251,6 +2252,7 @@
     renderSaBrandDetail(from, to, cmp);
     renderSaTrendChart(from, to);
     renderSaDiagnosis(from, to);
+    renderSaDetailRange(from, to);
     if (document.getElementById('saDailyTableWrap').style.display !== 'none') renderSaDailyTable();
   }
 
@@ -2264,8 +2266,6 @@
   function selectSaBrandTab(channel) {
     saFilter.brand = channel;
     renderSaDashboard();
-    const monthSelect = document.getElementById('mktNaverSaMonthSelect');
-    if (monthSelect.value) renderSaDetailMonth(monthSelect.value);
   }
   function renderSaPeriodTabs() {
     document.querySelectorAll('#saPeriodTabs .ad-type-filter-btn').forEach((btn) => {
@@ -2540,21 +2540,51 @@
   }
 
   // ==================== 상세 성과: 월 선택 기반 캠페인/키워드/낭비 키워드 ====================
-  function renderSaDetailMonth(monthStr) {
+  // 일별 원본 행들을 (channel, campaign) 또는 keyword_id 기준으로 선택 기간만큼 합산한다.
+  function aggregateSaCampaignDaily(rows) {
+    const map = new Map();
+    for (const r of rows) {
+      const key = r.channel + '|' + r.campaign;
+      const cur = map.get(key) || { channel: r.channel, campaign: r.campaign, spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
+      cur.spend += Number(r.spend); cur.impressions += Number(r.impressions); cur.clicks += Number(r.clicks);
+      cur.conversions += Number(r.conversions); cur.revenue += Number(r.revenue);
+      map.set(key, cur);
+    }
+    return Array.from(map.values());
+  }
+  function aggregateSaKeywordDaily(rows) {
+    const map = new Map();
+    for (const r of rows) {
+      const cur = map.get(r.keyword_id) || {
+        channel: r.channel, campaign: r.campaign, adgroup: r.adgroup, keyword: r.keyword, keyword_id: r.keyword_id,
+        landing_url: null, sales_channel: null, spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0,
+      };
+      cur.spend += Number(r.spend); cur.impressions += Number(r.impressions); cur.clicks += Number(r.clicks);
+      cur.conversions += Number(r.conversions); cur.revenue += Number(r.revenue);
+      // 랜딩 URL/판매채널은 날짜별로 바뀔 수 있어 가장 최근 날짜 값을 쓴다(위에서 date 오름차순 정렬해서 로드했으므로 마지막에 덮어쓴 값 = 최신).
+      cur.landing_url = r.landing_url || cur.landing_url;
+      cur.sales_channel = r.sales_channel || cur.sales_channel;
+      map.set(r.keyword_id, cur);
+    }
+    return Array.from(map.values());
+  }
+
+  function renderSaDetailRange(from, to) {
     const noteEl = document.getElementById('saDetailNote');
     const brandLabel = saFilter.brand ? naverSaBrandName(saFilter.brand) + '만' : '전 브랜드';
-    noteEl.textContent = `월 단위 데이터 · ${brandLabel} · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산`;
+    noteEl.textContent = `${periodLabel(saFilter.period, from, to)} · ${brandLabel} · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산`;
 
-    // ---- 캠페인별 성과 ----
-    saCampaignAllRows = allMarketingCampaignRows
-      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (r.ad_type || 'SA') === 'SA' && (!saFilter.brand || r.channel === saFilter.brand))
-      .slice()
-      .sort((a, b) => Number(b.spend) - Number(a.spend));
+    // ---- 캠페인별 성과(SA만) ----
+    const campaignDailyRows = allSaCampaignDailyRows.filter((r) =>
+      r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && (!saFilter.brand || r.channel === saFilter.brand));
+    saCampaignAllRows = aggregateSaCampaignDaily(campaignDailyRows).sort((a, b) => Number(b.spend) - Number(a.spend));
     saCampaignShowAll = false;
     renderSaCampaignTable();
 
-    // ---- 키워드별 성과: 파생값 + 성과 상태(우수/주의/낭비/매출미집계) 계산 ----
-    const kwRowsRaw = allMarketingKeywordRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (!saFilter.brand || r.channel === saFilter.brand));
+    // ---- 키워드별 성과(SA+파워링크): 파생값 + 성과 상태(우수/주의/낭비/매출미집계) 계산 ----
+    const kwDailyRows = allSaKeywordDailyRows.filter((r) =>
+      r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && (!saFilter.brand || r.channel === saFilter.brand));
+    const kwRowsRaw = aggregateSaKeywordDaily(kwDailyRows);
     const convertingKw = kwRowsRaw.filter((r) => Number(r.conversions) > 0 && Number(r.revenue) > 0);
     const convertingSpend = convertingKw.reduce((s, r) => s + Number(r.spend), 0);
     const convertingConversions = convertingKw.reduce((s, r) => s + Number(r.conversions), 0);
@@ -2581,10 +2611,7 @@
     saKeywordShowAll = false;
     renderNaverSaKeywordSection();
 
-    renderSaWasteTab(monthStr);
-
-    const { from, to } = currentSaRange();
-    renderSaDiagnosis(from, to);
+    renderSaWasteTab(to);
   }
 
   function setSaDetailTab(tab) {
@@ -2801,35 +2828,37 @@
   }
 
   // ==================== 낭비 키워드 탭 ====================
-  function renderSaWasteTab(monthStr) {
+  // 이 키워드가 to일 기준으로 며칠째 "광고비는 썼는데 전환 0건"이 끊기지 않고 이어지고 있는지.
+  // (낭비 판정 자체는 선택 기간 합산 클릭수 기준 그대로 — 이건 그 판정과 별개로 상세 성과를 보여주는 보조 지표)
+  function consecutiveWasteDays(keywordId, uptoDate) {
+    const history = allSaKeywordDailyRows.filter((r) => r.keyword_id === keywordId && r.date <= uptoDate);
+    const byDate = new Map(history.map((r) => [r.date, r]));
+    let count = 0;
+    let d = uptoDate;
+    while (true) {
+      const row = byDate.get(d);
+      if (!row || !(Number(row.spend) > 0 && Number(row.conversions) === 0)) break;
+      count++;
+      d = addDays(d, -1);
+    }
+    return count;
+  }
+
+  function renderSaWasteTab(to) {
     const wasteRows = naverSaKeywordAllRows.filter((r) => r.status === 'waste').sort((a, b) => b.spend - a.spend);
     const totalSpendAllKw = naverSaKeywordAllRows.reduce((s, r) => s + r.spend, 0);
     const wasteTotalSpend = wasteRows.reduce((s, r) => s + r.spend, 0);
     const wasteShare = totalSpendAllKw > 0 ? (wasteTotalSpend / totalSpendAllKw * 100) : 0;
 
-    // 연속 낭비 개월 수: 일별 키워드 데이터가 없어 월 단위 이력으로 대체 계산
-    const allNaverKwRows = allMarketingKeywordRows.filter((r) => r.channel && r.channel.startsWith('네이버'));
-    const allMonthsSorted = Array.from(new Set(allNaverKwRows.map((r) => r.month))).sort();
-    const curMonthIdx = allMonthsSorted.indexOf(monthStr);
-    function consecutiveWasteMonths(keywordId) {
-      let count = 0;
-      for (let i = curMonthIdx; i >= 0; i--) {
-        const row = allNaverKwRows.find((r) => r.keyword_id === keywordId && r.month === allMonthsSorted[i]);
-        if (!row) break;
-        if (Number(row.clicks) >= WASTE_KEYWORD_MIN_CLICKS && Number(row.conversions) === 0) count++; else break;
-      }
-      return count;
-    }
-
     document.getElementById('mktNaverSaWasteInsights').innerHTML = `
       <div class="insight-chip"><div class="insight-chip-label">낭비 키워드 개수</div><div class="insight-chip-value${wasteRows.length > 0 ? ' pct-red' : ''}">${wasteRows.length.toLocaleString('ko-KR')}개</div></div>
       <div class="insight-chip"><div class="insight-chip-label">총 낭비 광고비</div><div class="insight-chip-value${wasteTotalSpend > 0 ? ' pct-red' : ''}">${won(Math.round(wasteTotalSpend))}</div></div>
       <div class="insight-chip"><div class="insight-chip-label">전체 광고비 대비 비중</div><div class="insight-chip-value${wasteShare > 0 ? ' pct-red' : ''}">${wasteShare.toFixed(1)}%</div></div>
-      <div class="insight-chip"><div class="insight-chip-label">최장 연속 낭비</div><div class="insight-chip-value">${wasteRows.length ? Math.max(...wasteRows.map((r) => consecutiveWasteMonths(r.keyword_id))) : 0}개월</div></div>
+      <div class="insight-chip"><div class="insight-chip-label">최장 연속 무전환</div><div class="insight-chip-value">${wasteRows.length ? Math.max(...wasteRows.map((r) => consecutiveWasteDays(r.keyword_id, to))) : 0}일</div></div>
     `;
 
     document.getElementById('mktNaverSaWasteKeywordTable').innerHTML = wasteRows.length ? wasteRows.map((r) => {
-      const months = consecutiveWasteMonths(r.keyword_id);
+      const days = consecutiveWasteDays(r.keyword_id, to);
       const diagId = saDiagId([r.channel, r.campaign, r.keyword, 'waste-tab']);
       return `
         <tr>
@@ -2843,7 +2872,7 @@
           <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
           <td class="num">${r.ctr.toFixed(2)}%</td>
           <td class="num">${won(Math.round(r.cpc))}</td>
-          <td>${months >= 2 ? '중단 검토' : '입찰가 축소'}</td>
+          <td>${days >= 7 ? '중단 검토' : '입찰가 축소'}</td>
           <td>
             <select class="vendor-select" onchange="setSaDiagStatus('${diagId}', this.value)">
               ${['확인전', '확인완료', '조치완료'].map((s) => `<option value="${s}" ${getSaDiagStatus(diagId) === s ? 'selected' : ''}>${s}</option>`).join('')}
