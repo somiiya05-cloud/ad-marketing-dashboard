@@ -681,7 +681,7 @@
             <div class="scroll-box">
               <table>
                 <thead>
-                  <tr><th>브랜드</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>캠페인</th><th>광고그룹</th><th>판매채널</th></tr>
+                  <tr><th>브랜드</th><th>캠페인</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th>광고그룹</th><th>판매채널</th></tr>
                 </thead>
                 <tbody id="mktNaverSaKeywordTable"></tbody>
               </table>
@@ -2721,6 +2721,7 @@
           return `
             <tr class="${saRowClass(r.status)}">
               <td>${escapeAttr(r.brandName)}</td>
+              <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
               <td>${dot}${escapeAttr(r.keyword)}</td>
               <td class="num">${won(Math.round(r.spend))}</td>
               <td class="num">${won(Math.round(r.revenue))}</td>
@@ -2729,7 +2730,6 @@
               <td class="num">${r.clicks.toLocaleString('ko-KR')}</td>
               <td class="num">${r.ctr.toFixed(2)}%</td>
               <td class="num">${won(Math.round(r.cpc))}</td>
-              <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
               <td class="sa-truncate" title="${escapeAttr(r.adgroup)}">${escapeAttr(r.adgroup)}</td>
               <td>${saSalesChannelBadge(r)}</td>
             </tr>
