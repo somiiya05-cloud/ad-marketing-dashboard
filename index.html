@@ -637,7 +637,7 @@
           <div class="panel-head">
             <div>
               <h2>상세 성과</h2>
-              <span class="panel-note">월 단위 데이터 · 전 브랜드 · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산</span>
+              <span class="panel-note" id="saDetailNote">월 단위 데이터 · 전 브랜드 · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산</span>
             </div>
             <select id="mktNaverSaMonthSelect" class="month-select"></select>
           </div>
@@ -2264,6 +2264,8 @@
   function selectSaBrandTab(channel) {
     saFilter.brand = channel;
     renderSaDashboard();
+    const monthSelect = document.getElementById('mktNaverSaMonthSelect');
+    if (monthSelect.value) renderSaDetailMonth(monthSelect.value);
   }
   function renderSaPeriodTabs() {
     document.querySelectorAll('#saPeriodTabs .ad-type-filter-btn').forEach((btn) => {
@@ -2539,16 +2541,20 @@
 
   // ==================== 상세 성과: 월 선택 기반 캠페인/키워드/낭비 키워드 ====================
   function renderSaDetailMonth(monthStr) {
+    const noteEl = document.getElementById('saDetailNote');
+    const brandLabel = saFilter.brand ? naverSaBrandName(saFilter.brand) + '만' : '전 브랜드';
+    noteEl.textContent = `월 단위 데이터 · ${brandLabel} · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산`;
+
     // ---- 캠페인별 성과 ----
     saCampaignAllRows = allMarketingCampaignRows
-      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (r.ad_type || 'SA') === 'SA')
+      .filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (r.ad_type || 'SA') === 'SA' && (!saFilter.brand || r.channel === saFilter.brand))
       .slice()
       .sort((a, b) => Number(b.spend) - Number(a.spend));
     saCampaignShowAll = false;
     renderSaCampaignTable();
 
     // ---- 키워드별 성과: 파생값 + 성과 상태(우수/주의/낭비/매출미집계) 계산 ----
-    const kwRowsRaw = allMarketingKeywordRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr);
+    const kwRowsRaw = allMarketingKeywordRows.filter((r) => r.channel && r.channel.startsWith('네이버') && r.month === monthStr && (!saFilter.brand || r.channel === saFilter.brand));
     const convertingKw = kwRowsRaw.filter((r) => Number(r.conversions) > 0 && Number(r.revenue) > 0);
     const convertingSpend = convertingKw.reduce((s, r) => s + Number(r.spend), 0);
     const convertingConversions = convertingKw.reduce((s, r) => s + Number(r.conversions), 0);
