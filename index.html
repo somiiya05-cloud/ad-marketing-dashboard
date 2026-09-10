@@ -3091,7 +3091,6 @@
     const totalAllBrands = sumRows(gfaRowsForBrands(GFA_CARD_BRANDS.map((b) => b.channel), from, to));
     const cmpTotalAllBrands = sumRows(gfaRowsForBrands(GFA_CARD_BRANDS.map((b) => b.channel), cmp.from, cmp.to));
     const roas = roasOf(cur), cmpRoas = roasOf(cmpAgg);
-    const cpa = cpaOf(cur), cmpCpa = cpaOf(cmpAgg);
     const hasCmpTotalRows = cmpTotalAgg.spend > 0;
     const hasCmpConvRows = cmpAgg.spend > 0 || cmpAgg.conversions > 0;
     const spendShare = totalAllBrands.spend > 0 ? (totalAgg.spend / totalAllBrands.spend * 100) : 0;
@@ -3105,8 +3104,6 @@
       saKpiCard('ROAS', roas.toFixed(0) + '%',
         `${deltaLineOrNoData(roas, cmpRoas, hasCmpConvRows, { unit: 'pp' })}<div class="kpi-delta-sub">목표 대비 ${goalDeltaPP >= 0 ? '+' : ''}${goalDeltaPP.toFixed(0)}%p</div>`,
         roas >= goal.target ? 'kpi-value-good' : (roas < goal.min ? 'kpi-value-bad' : '')),
-      saKpiCard('전환', cur.conversions.toLocaleString('ko-KR') + '건', deltaLineOrNoData(cur.conversions, cmpAgg.conversions, hasCmpConvRows, { unit: 'pct' })),
-      saKpiCard('CPA', cur.conversions > 0 ? won(Math.round(cpa)) : '-', (cur.conversions > 0 && cmpAgg.conversions > 0) ? deltaLine(cpa, cmpCpa, { unit: 'won', invert: true }) : ''),
       saKpiCard('광고비 비중', spendShare.toFixed(1) + '%', deltaLineOrNoData(spendShare, cmpSpendShare, hasCmpTotalRows, { unit: 'pp', neutral: true })),
     ].join('');
   }
