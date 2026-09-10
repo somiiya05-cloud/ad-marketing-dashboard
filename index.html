@@ -2486,8 +2486,10 @@
     const items = [];
     const channels = SA_CARD_BRANDS.map((b) => b.channel);
     const totalAgg = sumRows(saDailyRowsForBrands(channels, from, to));
+    // 브랜드 탭에서 특정 브랜드를 선택했으면 진단도 그 브랜드만 보여준다(비중은 전체 대비로 그대로 계산).
+    const displayBrands = saFilter.brand ? SA_CARD_BRANDS_DISPLAY.filter((b) => b.channel === saFilter.brand) : SA_CARD_BRANDS_DISPLAY;
 
-    for (const b of SA_CARD_BRANDS_DISPLAY) {
+    for (const b of displayBrands) {
       const agg = sumRows(saDailyRowsForChannel(b.channel, from, to));
       if (agg.spend <= 0) continue;
       const roas = roasOf(agg);
@@ -2509,7 +2511,9 @@
       }
     }
 
-    const wasteTop = naverSaKeywordAllRows.filter((r) => r.status === 'waste').sort((a, b) => b.spend - a.spend).slice(0, 5);
+    const wasteTop = naverSaKeywordAllRows
+      .filter((r) => r.status === 'waste' && (!saFilter.brand || r.channel === saFilter.brand))
+      .sort((a, b) => b.spend - a.spend).slice(0, 5);
     for (const r of wasteTop) {
       items.push({ priority: '긴급', brand: r.brandName, title: '낭비 광고비 발생', evidence: `전환 0건, 광고비 ${won(Math.round(r.spend))} (키워드: ${r.keyword})`, action: '입찰가 축소 또는 중단 검토', id: saDiagId([r.channel, r.campaign, r.keyword, 'waste']) });
     }
