@@ -705,45 +705,11 @@
       </div>
 
       <div class="sa-filter-bar">
-        <div class="filter-group">
-          <div class="sa-filter-field">
-            <span class="sa-filter-field-label">조회 기간</span>
-            <select id="gfaPeriodSelect" class="vendor-select" onchange="setGfaPeriod(this.value)">
-              <option value="today">오늘</option>
-              <option value="yesterday">어제</option>
-              <option value="last7">최근 7일</option>
-              <option value="thisMonth" selected>이번 달</option>
-              <option value="lastMonth">지난달</option>
-              <option value="custom">직접 설정</option>
-            </select>
-          </div>
-          <div class="sa-filter-field" id="gfaCustomDateWrap" style="display:none;">
-            <input type="date" id="gfaCustomFrom" class="date-input" onchange="setGfaCustomRange()">
-            <span class="date-range-sep">~</span>
-            <input type="date" id="gfaCustomTo" class="date-input" onchange="setGfaCustomRange()">
-          </div>
-          <div class="sa-filter-field">
-            <span class="sa-filter-field-label">브랜드</span>
-            <select id="gfaBrandSelect" class="vendor-select" onchange="setGfaBrand(this.value)">
-              <option value="">전체 브랜드</option>
-              <option value="네이버 빠이러스">빠이러스</option>
-              <option value="네이버 코드니처">코드니처</option>
-              <option value="네이버 미니멀룸">미니멀룸</option>
-              <option value="네이버 라스마">라이프스타일마트</option>
-            </select>
-          </div>
-          <div class="sa-filter-field">
-            <span class="sa-filter-field-label">비교 기준</span>
-            <select id="gfaCompareSelect" class="vendor-select" onchange="setGfaCompare(this.value)">
-              <option value="prevPeriod">전일 대비</option>
-              <option value="prev7">직전 7일 대비</option>
-              <option value="prevMonth">전월 대비</option>
-            </select>
-          </div>
-          <button type="button" class="filter-reset-btn" onclick="resetGfaFilters()">필터 초기화</button>
+        <div class="filter-group" id="gfaPeriodTabs">
+          <button type="button" class="ad-type-filter-btn" data-gfaperiod="yesterday" onclick="setGfaPeriod('yesterday')">하루전</button>
+          <button type="button" class="ad-type-filter-btn" data-gfaperiod="last3" onclick="setGfaPeriod('last3')">3일</button>
+          <button type="button" class="ad-type-filter-btn" data-gfaperiod="thisMonth" onclick="setGfaPeriod('thisMonth')">한달</button>
         </div>
-        <div class="sa-filter-meta" id="gfaFilterMeta"></div>
-        <div class="sa-filter-note">광고그룹·소재·키워드 단위 데이터는 없어요(GFA 리포트가 캠페인 단위까지만 제공). 캠페인 성과 표는 위 조회 기간을 그대로 따릅니다.</div>
       </div>
 
       <div id="mktNaverGfaEmpty" class="mkt-empty" style="display:none">
@@ -753,29 +719,14 @@
       <div id="mktNaverGfaContent">
         <section class="panel">
           <div class="panel-head">
-            <h2>네이버 GFA 요약</h2>
-            <span class="panel-note">선택한 기간 · 전체 브랜드 합산 · 엑셀 리포트 업로드 기반</span>
-          </div>
-          <div class="kpi-row kpi-row-compact" id="gfaSummaryCards"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>브랜드별 성과</h2>
-            <span class="panel-note">브랜드 카드를 클릭하면 아래 전체 영역이 그 브랜드 기준으로 필터링됩니다</span>
-          </div>
-          <div class="brand-card-grid" id="gfaBrandCards"></div>
-        </section>
-
-        <section class="panel" id="gfaBrandDetailSection" style="display:none;">
-          <div class="panel-head">
-            <h2 id="gfaBrandDetailTitle">선택 브랜드 핵심 지표</h2>
+            <h2 id="gfaBrandDetailTitle">전체 브랜드 핵심 지표</h2>
             <span class="panel-note" id="gfaBrandDetailNote"></span>
           </div>
+          <div class="filter-group" id="gfaBrandTabs" style="margin-bottom:14px;"></div>
           <div class="kpi-row kpi-row-compact" id="gfaBrandDetailCards"></div>
         </section>
 
-        <section class="panel">
+        <section class="panel" id="gfaDiagnosisSection">
           <div class="panel-head">
             <h2>오늘의 광고 진단</h2>
             <span class="panel-note">인지도·트래픽 등 전환 목적이 아닌 캠페인은 ROAS 진단에서 제외(목표 외로 별도 표시)</span>
@@ -792,35 +743,41 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>일별 광고비 · 전환매출 · ROAS 추이</h2>
-            <span class="panel-note">막대: 광고비 · 실선: 전환매출/ROAS · 점선: 목표·최소 ROAS 기준선 · 아직 집계 안 된 날짜는 0이 아니라 "집계중"으로 표시</span>
+            <div>
+              <h2>상세 성과</h2>
+              <span class="panel-note" id="gfaDetailNote">광고그룹·소재·키워드 단위 데이터는 없어요(GFA 리포트가 캠페인 단위까지만 제공)</span>
+            </div>
           </div>
-          <div id="gfaTrendChartWrap"></div>
-          <button type="button" class="filter-reset-btn" id="gfaTrendToggleBtn" onclick="toggleGfaDailyTable()" style="margin-top:12px;">일별 데이터 펼쳐보기 ▾</button>
-          <div class="scroll-box" id="gfaDailyTableWrap" style="display:none; margin-top:12px;">
-            <table>
-              <thead>
-                <tr><th>날짜</th><th>브랜드</th><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">전환매출</th><th class="num">ROAS</th></tr>
-              </thead>
-              <tbody id="mktNaverGfaDailyTable"></tbody>
-            </table>
+          <div class="filter-group" id="gfaDetailTabs" style="margin-bottom:14px;">
+            <button type="button" class="ad-type-filter-btn" data-gfatab="chart" onclick="setGfaDetailTab('chart')">그래프</button>
+            <button type="button" class="ad-type-filter-btn active" data-gfatab="campaign" onclick="setGfaDetailTab('campaign')">캠페인 성과</button>
           </div>
-        </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <h2>캠페인 성과</h2>
-            <span class="panel-note">선택한 기간 · 광고비 발생한 캠페인만 기본 표시(광고비 0원은 전체 보기에서 확인)</span>
+          <div id="gfaDetailPanelChart" style="display:none;">
+            <button type="button" class="filter-reset-btn" id="gfaTrendChartToggleBtn" onclick="toggleGfaTrendChart()">그래프 펼쳐보기 ▾</button>
+            <div id="gfaTrendChartWrap" style="display:none; margin-top:12px;"></div>
+            <button type="button" class="filter-reset-btn" id="gfaTrendToggleBtn" onclick="toggleGfaDailyTable()" style="margin-top:12px;">일별 데이터 펼쳐보기 ▾</button>
+            <div class="scroll-box" id="gfaDailyTableWrap" style="display:none; margin-top:12px;">
+              <table>
+                <thead>
+                  <tr><th>날짜</th><th>브랜드</th><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">전환매출</th><th class="num">ROAS</th></tr>
+                </thead>
+                <tbody id="mktNaverGfaDailyTable"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th></th><th>브랜드</th><th>캠페인</th><th>캠페인 목적</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">CPA</th><th>상태</th></tr>
-              </thead>
-              <tbody id="mktNaverGfaCampaignTable"></tbody>
-            </table>
+
+          <div id="gfaDetailPanelCampaign">
+            <div class="scroll-box">
+              <table>
+                <thead>
+                  <tr><th></th><th>브랜드</th><th>캠페인</th><th>캠페인 목적</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">CPA</th><th>상태</th></tr>
+                </thead>
+                <tbody id="mktNaverGfaCampaignTable"></tbody>
+              </table>
+            </div>
+            <button type="button" class="filter-reset-btn" id="gfaCampaignShowMoreBtn" onclick="toggleGfaCampaignShowAll()" style="margin-top:10px; display:none;"></button>
           </div>
-          <button type="button" class="filter-reset-btn" id="gfaCampaignShowMoreBtn" onclick="toggleGfaCampaignShowAll()" style="margin-top:10px; display:none;"></button>
         </section>
 
         <section class="panel">
@@ -2946,14 +2903,13 @@
     }
   }
 
-  let gfaFilter = { period: 'thisMonth', customFrom: '', customTo: '', brand: '', compare: 'prevPeriod' };
+  let gfaFilter = { period: 'thisMonth', brand: '', compare: 'prevPeriod' };
   let gfaTrendDays = [];
   let gfaCampaignShowAll = false;
+  let gfaDetailTabState = 'campaign';
 
   function currentGfaRange() {
-    return gfaFilter.period === 'custom'
-      ? getPeriodRange('custom', gfaFilter.customFrom, gfaFilter.customTo)
-      : getPeriodRange(gfaFilter.period);
+    return getPeriodRange(gfaFilter.period);
   }
   function gfaRowsForChannel(channel, from, to) {
     return allGfaDailyRows.filter((r) => r.channel === channel && r.date >= from && r.date <= to);
@@ -2974,184 +2930,116 @@
     renderGfaDashboard();
   }
 
+  function renderGfaPeriodTabs() {
+    document.querySelectorAll('#gfaPeriodTabs .ad-type-filter-btn').forEach((btn) => {
+      btn.classList.toggle('active', gfaFilter.period === btn.dataset.gfaperiod);
+    });
+  }
+  function setGfaPeriod(value) {
+    gfaFilter.period = value;
+    renderGfaDashboard();
+  }
+
+  // 브랜드별 핵심 지표를 탭으로("전체" + 브랜드별) — SA 페이지와 동일한 패턴.
+  function renderGfaBrandTabs() {
+    const tabs = [{ channel: '', name: '전체' }, ...GFA_CARD_BRANDS];
+    document.getElementById('gfaBrandTabs').innerHTML = tabs.map((b) => `
+      <button type="button" class="ad-type-filter-btn${gfaFilter.brand === b.channel ? ' active' : ''}" onclick="selectGfaBrandTab('${escapeAttr(b.channel)}')">${escapeAttr(b.name)}</button>
+    `).join('');
+  }
+  function selectGfaBrandTab(channel) {
+    gfaFilter.brand = channel;
+    renderGfaDashboard();
+  }
+
   function renderGfaDashboard() {
     const { from, to } = currentGfaRange();
     const cmp = getComparisonRange(gfaFilter.compare, from, to);
-    const brandChannels = GFA_CARD_BRANDS.map((b) => b.channel);
-    const curRows = gfaRowsForBrands(brandChannels, from, to);
-    const cmpRows = gfaRowsForBrands(brandChannels, cmp.from, cmp.to);
 
     const allGfaUpdated = allGfaDailyRows.filter((r) => r.updated_at);
     const lastUpdated = allGfaUpdated.length
       ? allGfaUpdated.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), allGfaUpdated[0].updated_at)
       : null;
     const latestConfirmed = gfaLatestConfirmedDate();
-    document.getElementById('gfaFilterMeta').innerHTML = `
-      <span class="sa-filter-meta-item">📅 ${escapeAttr(periodLabel(gfaFilter.period, from, to))}</span>
-      <span class="sa-filter-meta-item">비교: ${escapeAttr(compareLabel(gfaFilter.compare))} (${cmp.from} ~ ${cmp.to})</span>
-      ${lastUpdated ? `<span class="sa-filter-meta-item">마지막 업데이트: ${escapeAttr(formatUpdatedAt(lastUpdated))}</span>` : ''}
-      ${latestConfirmed ? `<span class="sa-filter-meta-item">최근 확정 데이터: ${escapeAttr(latestConfirmed)}</span>` : ''}
-    `;
     document.getElementById('mktNaverGfaSubtitle').textContent =
-      `${from} ~ ${to} · 브랜드 ${GFA_CARD_BRANDS.length}개 중 데이터 있는 브랜드 기준`;
+      `${from} ~ ${to} · 브랜드 ${GFA_CARD_BRANDS.length}개 중 데이터 있는 브랜드 기준` +
+      (lastUpdated ? ` · 마지막 업데이트: ${formatUpdatedAt(lastUpdated)}` : '') +
+      (latestConfirmed ? ` · 최근 확정 데이터: ${latestConfirmed}` : '');
 
-    const detailSection = document.getElementById('gfaBrandDetailSection');
-    detailSection.style.display = gfaFilter.brand ? '' : 'none';
+    renderGfaPeriodTabs();
+    renderGfaBrandTabs();
+    renderGfaBrandDetail(from, to, cmp);
 
-    renderGfaSummaryCards(curRows, cmpRows);
-    renderGfaBrandCards(from, to, cmp);
-    if (gfaFilter.brand) renderGfaBrandDetail(from, to, cmp);
-    renderGfaDiagnosis(from, to);
+    // 특정 브랜드를 선택하면 여러 브랜드를 훑는 "오늘의 광고 진단"은 숨긴다
+    // (그 브랜드의 캠페인 성과는 아래 "상세 성과 › 캠페인 성과" 탭에서 항상 볼 수 있음).
+    document.getElementById('gfaDiagnosisSection').style.display = gfaFilter.brand ? 'none' : '';
+    if (!gfaFilter.brand) renderGfaDiagnosis(from, to);
+
+    document.getElementById('gfaDetailNote').textContent =
+      '광고그룹·소재·키워드 단위 데이터는 없어요(GFA 리포트가 캠페인 단위까지만 제공) · ' +
+      (gfaFilter.brand ? naverSaBrandName(gfaFilter.brand) + '만' : '전 브랜드');
+
     renderGfaTrendChart(from, to);
     renderGfaCampaignTable(from, to);
     if (document.getElementById('gfaDailyTableWrap').style.display !== 'none') renderGfaDailyTable();
   }
 
-  function renderGfaSummaryCards(curRows, cmpRows) {
-    const cur = sumRows(curRows);
-    const cmp = sumRows(cmpRows);
-    // ROAS·전환매출·전환·CPA는 인지도/트래픽 등 전환 목적이 아닌 캠페인의 광고비를 빼고 계산한다
-    // (그런 캠페인은 매출이 0으로 잡혀 ROAS 분모만 부풀린다).
-    const curConv = gfaConversionAgg(curRows);
-    const cmpConv = gfaConversionAgg(cmpRows);
-    const curRoas = roasOf(curConv), cmpRoas = roasOf(cmpConv);
-    const hasCmpRows = cmpRows.length > 0;
-    const hasCmpConvRows = cmpConv.spend > 0 || cmpConv.conversions > 0;
-
-    // 비효율·낭비 광고비: 전환 목적 캠페인 중 상태가 낭비/비효율인 캠페인의 광고비 합
-    const byCampaign = new Map();
-    for (const r of curRows) {
-      if (!isGfaConversionPurpose(r.campaign_purpose)) continue;
-      const key = r.channel + '|' + r.campaign;
-      const c = byCampaign.get(key) || { spend: 0, conversions: 0, revenue: 0 };
-      c.spend += Number(r.spend); c.conversions += Number(r.conversions); c.revenue += Number(r.revenue);
-      byCampaign.set(key, c);
-    }
-    let inefficientSpend = 0;
-    const flatGoal = { target: GFA_ROAS_TARGET_DEFAULT, min: GFA_ROAS_MIN_DEFAULT };
-    for (const c of byCampaign.values()) {
-      const status = classifyGfaPerformanceStatus(c, flatGoal, true);
-      if (status === 'waste' || status === 'inefficient') inefficientSpend += c.spend;
-    }
-    const inefficientShare = cur.spend > 0 ? (inefficientSpend / cur.spend * 100) : 0;
-
-    document.getElementById('gfaSummaryCards').innerHTML = [
-      saKpiCard('광고비', won(Math.round(cur.spend)), deltaLineOrNoData(cur.spend, cmp.spend, hasCmpRows, { unit: 'won', neutral: true })),
-      saKpiCard('전환매출', won(Math.round(curConv.revenue)), deltaLineOrNoData(curConv.revenue, cmpConv.revenue, hasCmpConvRows, { unit: 'won' })),
-      saKpiCard('ROAS', curRoas.toFixed(0) + '%', deltaLineOrNoData(curRoas, cmpRoas, hasCmpConvRows, { unit: 'pp' }), curRoas >= GFA_ROAS_TARGET_DEFAULT ? 'kpi-value-good' : ''),
-      saKpiCard('비효율·낭비 광고비', won(Math.round(inefficientSpend)), `<span class="delta-neutral">전체 광고비의 ${inefficientShare.toFixed(1)}%</span>`),
-    ].join('');
-  }
-
-  function renderGfaBrandCards(from, to, cmp) {
-    const statusLabel = GFA_STATUS_LABEL;
-    document.getElementById('gfaBrandCards').innerHTML = GFA_CARD_BRANDS.map((b) => {
-      const rows = gfaRowsForChannel(b.channel, from, to);
-      const cmpRows = gfaRowsForChannel(b.channel, cmp.from, cmp.to);
-      const totalAgg = sumRows(rows);
-      const convAgg = gfaConversionAgg(rows);
-      const cmpConvAgg = gfaConversionAgg(cmpRows);
-      const goal = gfaBrandGoal(b.channel);
-      const status = totalAgg.spend <= 0 ? 'no-data' : (convAgg.spend > 0 ? classifyGfaPerformanceStatus(convAgg, goal, true) : 'off-target');
-      const roas = roasOf(convAgg), cmpRoas = roasOf(cmpConvAgg);
-      const isSelected = gfaFilter.brand === b.channel;
-      const excludedSpend = totalAgg.spend - convAgg.spend;
-      return `
-        <div class="brand-card status-${status}${isSelected ? ' selected' : ''}" onclick="toggleGfaBrand('${escapeAttr(b.channel)}')">
-          <div class="brand-card-head">
-            <span class="brand-card-name">${escapeAttr(b.name)}</span>
-            <span class="brand-card-status status-${status}">${statusLabel[status]}</span>
-          </div>
-          ${status === 'no-data' ? `
-            <div class="brand-card-empty">이 기간 데이터가 없어요.</div>
-          ` : status === 'off-target' ? `
-            <div class="brand-card-metric"><span class="brand-card-metric-label">광고비</span><span class="brand-card-metric-value">${won(Math.round(totalAgg.spend))}</span></div>
-            <div class="brand-card-empty">인지도·트래픽 목적 캠페인만 집행돼 ROAS 판단 대상이 아니에요.</div>
-          ` : `
-            <div class="brand-card-metric"><span class="brand-card-metric-label">전환매출</span><span class="brand-card-metric-value">${won(Math.round(convAgg.revenue))}</span></div>
-            <div class="brand-card-metric"><span class="brand-card-metric-label">광고비</span><span class="brand-card-metric-value">${won(Math.round(totalAgg.spend))}</span></div>
-            <div class="brand-card-metric"><span class="brand-card-metric-label">ROAS</span><span class="brand-card-metric-value">${roas.toFixed(0)}%</span></div>
-            <div class="brand-card-metric"><span class="brand-card-metric-label">전환</span><span class="brand-card-metric-value">${convAgg.conversions.toLocaleString('ko-KR')}건</span></div>
-            <div class="brand-card-delta">${escapeAttr(compareLabel(gfaFilter.compare))} ROAS ${deltaLineOrNoData(roas, cmpRoas, cmpConvAgg.spend > 0 || cmpConvAgg.conversions > 0, { unit: 'pp' })}</div>
-            ${excludedSpend > 0 ? `<div class="brand-card-delta">인지도·트래픽 광고비 ${won(Math.round(excludedSpend))} 별도(ROAS 판단 제외)</div>` : ''}
-          `}
-          <div class="brand-card-link">상세보기 →</div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  function toggleGfaBrand(channel) {
-    gfaFilter.brand = gfaFilter.brand === channel ? '' : channel;
-    document.getElementById('gfaBrandSelect').value = gfaFilter.brand;
-    renderGfaDashboard();
-  }
-  function setGfaBrand(value) {
-    gfaFilter.brand = value;
-    renderGfaDashboard();
-  }
-  function setGfaPeriod(value) {
-    gfaFilter.period = value;
-    document.getElementById('gfaCustomDateWrap').style.display = value === 'custom' ? '' : 'none';
-    if (value === 'custom' && !gfaFilter.customFrom) {
-      const r = getPeriodRange('thisMonth');
-      gfaFilter.customFrom = r.from; gfaFilter.customTo = r.to;
-      document.getElementById('gfaCustomFrom').value = r.from;
-      document.getElementById('gfaCustomTo').value = r.to;
-    }
-    renderGfaDashboard();
-  }
-  function setGfaCustomRange() {
-    let from = document.getElementById('gfaCustomFrom').value;
-    let to = document.getElementById('gfaCustomTo').value;
-    if (from && to && from > to) { const t = from; from = to; to = t; }
-    gfaFilter.customFrom = from; gfaFilter.customTo = to;
-    document.getElementById('gfaCustomFrom').value = from;
-    document.getElementById('gfaCustomTo').value = to;
-    renderGfaDashboard();
-  }
-  function setGfaCompare(value) {
-    gfaFilter.compare = value;
-    renderGfaDashboard();
-  }
-  function resetGfaFilters() {
-    gfaFilter = { period: 'thisMonth', customFrom: '', customTo: '', brand: '', compare: 'prevPeriod' };
-    document.getElementById('gfaPeriodSelect').value = 'thisMonth';
-    document.getElementById('gfaCustomDateWrap').style.display = 'none';
-    document.getElementById('gfaBrandSelect').value = '';
-    document.getElementById('gfaCompareSelect').value = 'prevPeriod';
-    renderGfaDashboard();
-  }
-
+  // 브랜드 핵심 지표 카드 — "전체"일 때는 4번째 카드로 비효율·낭비 광고비를, 특정 브랜드를
+  // 선택했을 때는 광고비 비중을 보여준다(SA 페이지와 광고비/전환매출/ROAS 3개는 동일).
   function renderGfaBrandDetail(from, to, cmp) {
-    const channels = [gfaFilter.brand];
-    const label = naverSaBrandName(gfaFilter.brand);
-    document.getElementById('gfaBrandDetailTitle').textContent = `${label} 핵심 지표`;
-    document.getElementById('gfaBrandDetailNote').textContent = periodLabel(gfaFilter.period, from, to);
+    const channels = gfaFilter.brand ? [gfaFilter.brand] : GFA_CARD_BRANDS.map((b) => b.channel);
+    const label = gfaFilter.brand ? naverSaBrandName(gfaFilter.brand) + '만' : '전체 브랜드';
+    document.getElementById('gfaBrandDetailTitle').textContent = `${gfaFilter.brand ? naverSaBrandName(gfaFilter.brand) : '전체 브랜드'} 핵심 지표`;
+    document.getElementById('gfaBrandDetailNote').textContent = `${periodLabel(gfaFilter.period, from, to)} · ${label}`;
 
-    const totalAgg = sumRows(gfaRowsForBrands(channels, from, to));
-    const cmpTotalAgg = sumRows(gfaRowsForBrands(channels, cmp.from, cmp.to));
-    // ROAS·전환매출·전환·CPA는 인지도/트래픽 등 전환 목적이 아닌 캠페인의 광고비를 뺀 값 기준
-    const cur = gfaConversionAgg(gfaRowsForBrands(channels, from, to));
-    const cmpAgg = gfaConversionAgg(gfaRowsForBrands(channels, cmp.from, cmp.to));
-    const totalAllBrands = sumRows(gfaRowsForBrands(GFA_CARD_BRANDS.map((b) => b.channel), from, to));
-    const cmpTotalAllBrands = sumRows(gfaRowsForBrands(GFA_CARD_BRANDS.map((b) => b.channel), cmp.from, cmp.to));
+    const rows = gfaRowsForBrands(channels, from, to);
+    const cmpRowsScoped = gfaRowsForBrands(channels, cmp.from, cmp.to);
+    const totalAgg = sumRows(rows);
+    const cmpTotalAgg = sumRows(cmpRowsScoped);
+    // ROAS·전환매출은 인지도/트래픽 등 전환 목적이 아닌 캠페인의 광고비를 뺀 값 기준
+    const cur = gfaConversionAgg(rows);
+    const cmpAgg = gfaConversionAgg(cmpRowsScoped);
     const roas = roasOf(cur), cmpRoas = roasOf(cmpAgg);
     const hasCmpTotalRows = cmpTotalAgg.spend > 0;
     const hasCmpConvRows = cmpAgg.spend > 0 || cmpAgg.conversions > 0;
-    const spendShare = totalAllBrands.spend > 0 ? (totalAgg.spend / totalAllBrands.spend * 100) : 0;
-    const cmpSpendShare = cmpTotalAllBrands.spend > 0 ? (cmpTotalAgg.spend / cmpTotalAllBrands.spend * 100) : 0;
-    const goal = gfaBrandGoal(gfaFilter.brand);
+    const goal = gfaFilter.brand ? gfaBrandGoal(gfaFilter.brand) : { target: GFA_ROAS_TARGET_DEFAULT, min: GFA_ROAS_MIN_DEFAULT };
     const goalDeltaPP = roas - goal.target;
 
-    document.getElementById('gfaBrandDetailCards').innerHTML = [
+    const cards = [
       saKpiCard('광고비', won(Math.round(totalAgg.spend)), deltaLineOrNoData(totalAgg.spend, cmpTotalAgg.spend, hasCmpTotalRows, { unit: 'won', neutral: true })),
       saKpiCard('전환매출', won(Math.round(cur.revenue)), deltaLineOrNoData(cur.revenue, cmpAgg.revenue, hasCmpConvRows, { unit: 'won' })),
       saKpiCard('ROAS', roas.toFixed(0) + '%',
         `${deltaLineOrNoData(roas, cmpRoas, hasCmpConvRows, { unit: 'pp' })}<div class="kpi-delta-sub">목표 대비 ${goalDeltaPP >= 0 ? '+' : ''}${goalDeltaPP.toFixed(0)}%p</div>`,
         roas >= goal.target ? 'kpi-value-good' : (roas < goal.min ? 'kpi-value-bad' : '')),
-      saKpiCard('광고비 비중', spendShare.toFixed(1) + '%', deltaLineOrNoData(spendShare, cmpSpendShare, hasCmpTotalRows, { unit: 'pp', neutral: true })),
-    ].join('');
+    ];
+
+    if (gfaFilter.brand) {
+      const totalAllBrands = sumRows(gfaRowsForBrands(GFA_CARD_BRANDS.map((b) => b.channel), from, to));
+      const cmpTotalAllBrands = sumRows(gfaRowsForBrands(GFA_CARD_BRANDS.map((b) => b.channel), cmp.from, cmp.to));
+      const spendShare = totalAllBrands.spend > 0 ? (totalAgg.spend / totalAllBrands.spend * 100) : 0;
+      const cmpSpendShare = cmpTotalAllBrands.spend > 0 ? (cmpTotalAgg.spend / cmpTotalAllBrands.spend * 100) : 0;
+      cards.push(saKpiCard('광고비 비중', spendShare.toFixed(1) + '%', deltaLineOrNoData(spendShare, cmpSpendShare, hasCmpTotalRows, { unit: 'pp', neutral: true })));
+    } else {
+      // 비효율·낭비 광고비: 전환 목적 캠페인 중 상태가 낭비/비효율인 캠페인의 광고비 합
+      const byCampaign = new Map();
+      for (const r of rows) {
+        if (!isGfaConversionPurpose(r.campaign_purpose)) continue;
+        const key = r.channel + '|' + r.campaign;
+        const c = byCampaign.get(key) || { spend: 0, conversions: 0, revenue: 0 };
+        c.spend += Number(r.spend); c.conversions += Number(r.conversions); c.revenue += Number(r.revenue);
+        byCampaign.set(key, c);
+      }
+      let inefficientSpend = 0;
+      const flatGoal = { target: GFA_ROAS_TARGET_DEFAULT, min: GFA_ROAS_MIN_DEFAULT };
+      for (const c of byCampaign.values()) {
+        const status = classifyGfaPerformanceStatus(c, flatGoal, true);
+        if (status === 'waste' || status === 'inefficient') inefficientSpend += c.spend;
+      }
+      const inefficientShare = totalAgg.spend > 0 ? (inefficientSpend / totalAgg.spend * 100) : 0;
+      cards.push(saKpiCard('비효율·낭비 광고비', won(Math.round(inefficientSpend)), `<span class="delta-neutral">전체 광고비의 ${inefficientShare.toFixed(1)}%</span>`));
+    }
+
+    document.getElementById('gfaBrandDetailCards').innerHTML = cards.join('');
   }
 
   function renderGfaTrendChart(from, to) {
@@ -3289,6 +3177,21 @@
     wrap.style.display = show ? '' : 'none';
     btn.textContent = show ? '일별 데이터 접기 ▴' : '일별 데이터 펼쳐보기 ▾';
     if (show) renderGfaDailyTable();
+  }
+  function toggleGfaTrendChart() {
+    const wrap = document.getElementById('gfaTrendChartWrap');
+    const btn = document.getElementById('gfaTrendChartToggleBtn');
+    const show = wrap.style.display === 'none';
+    wrap.style.display = show ? '' : 'none';
+    btn.textContent = show ? '그래프 접기 ▴' : '그래프 펼쳐보기 ▾';
+  }
+  function setGfaDetailTab(tab) {
+    gfaDetailTabState = tab;
+    document.querySelectorAll('#gfaDetailTabs .ad-type-filter-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.gfatab === tab);
+    });
+    document.getElementById('gfaDetailPanelChart').style.display = tab === 'chart' ? '' : 'none';
+    document.getElementById('gfaDetailPanelCampaign').style.display = tab === 'campaign' ? '' : 'none';
   }
 
   function renderGfaDailyTable() {
