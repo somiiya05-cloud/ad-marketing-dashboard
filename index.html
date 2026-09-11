@@ -2644,7 +2644,17 @@
     const rows = naverSaKeywordAllRows
       .filter((k) => k.channel === channel && k.campaign === campaign)
       .sort((a, b) => b.spend - a.spend);
-    if (!rows.length) return '<div style="padding:6px 0; color:#94a3b8;">이 캠페인에 표시할 키워드 데이터가 없어요.</div>';
+    // 쇼핑검색/브랜드검색(자사명검색) 유형 캠페인(캠페인명이 보통 _SSS로 끝남)은 네이버 API가
+    // 캠페인 단위 광고비·클릭은 주지만 키워드 단위로는 안 잡아준다 — 브랜드 상관없이 공통된
+    // 네이버 쪽 데이터 한계라서, 모든 브랜드에 동일하게 이유를 밝혀서 보여준다.
+    if (!rows.length) {
+      const likelyNoKeywordType = /SSS/i.test(campaign);
+      return `<div style="padding:6px 0; color:#94a3b8;">${
+        likelyNoKeywordType
+          ? '이 캠페인은 네이버가 키워드 단위 데이터를 제공하지 않는 유형(쇼핑검색/브랜드검색 등)이라 캠페인 단위 수치만 있어요.'
+          : '이 캠페인에 표시할 키워드 데이터가 없어요.'
+      }</div>`;
+    }
     return `
       <table class="sa-nested-kw-table">
         <thead>
