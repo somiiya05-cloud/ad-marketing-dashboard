@@ -600,24 +600,6 @@
           <div class="kpi-row kpi-row-compact" id="saBrandDetailCards"></div>
         </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <h2>일별 광고비 · 전환매출 · ROAS 추이</h2>
-            <span class="panel-note">SA+파워링크 합산 · 막대: 광고비 · 실선: 전환매출/ROAS · 점선: 목표·최소 ROAS 기준선</span>
-          </div>
-          <button type="button" class="filter-reset-btn" id="saTrendChartToggleBtn" onclick="toggleSaTrendChart()">그래프 펼쳐보기 ▾</button>
-          <div id="saTrendChartWrap" style="display:none; margin-top:12px;"></div>
-          <button type="button" class="filter-reset-btn" id="saTrendToggleBtn" onclick="toggleSaDailyTable()" style="margin-top:12px;">일별 데이터 펼쳐보기 ▾</button>
-          <div class="scroll-box" id="saDailyTableWrap" style="display:none; margin-top:12px;">
-            <table>
-              <thead>
-                <tr><th>날짜</th><th>브랜드</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">전환매출</th><th class="num">ROAS</th></tr>
-              </thead>
-              <tbody id="mktNaverSaDailyTable"></tbody>
-            </table>
-          </div>
-        </section>
-
         <section class="panel" id="saDiagnosisSection">
           <div class="panel-head">
             <h2>오늘의 광고 진단</h2>
@@ -633,21 +615,6 @@
           </div>
         </section>
 
-        <section class="panel" id="saBrandCampaignSection" style="display:none;">
-          <div class="panel-head">
-            <h2 id="saBrandCampaignTitle">캠페인 성과</h2>
-            <span class="panel-note" id="saBrandCampaignNote"></span>
-          </div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th>캠페인</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">CPA</th><th>상태</th></tr>
-              </thead>
-              <tbody id="saBrandCampaignTable"></tbody>
-            </table>
-          </div>
-        </section>
-
         <section class="panel">
           <div class="panel-head">
             <div>
@@ -656,8 +623,36 @@
             </div>
           </div>
           <div class="filter-group" id="saDetailTabs" style="margin-bottom:14px;">
+            <button type="button" class="ad-type-filter-btn" data-satab="chart" onclick="setSaDetailTab('chart')">그래프</button>
+            <button type="button" class="ad-type-filter-btn" data-satab="campaign" onclick="setSaDetailTab('campaign')">캠페인 성과</button>
             <button type="button" class="ad-type-filter-btn active" data-satab="keyword" onclick="setSaDetailTab('keyword')">키워드 성과</button>
             <button type="button" class="ad-type-filter-btn" data-satab="waste" onclick="setSaDetailTab('waste')">낭비 키워드</button>
+          </div>
+
+          <div id="saDetailPanelChart" style="display:none;">
+            <button type="button" class="filter-reset-btn" id="saTrendChartToggleBtn" onclick="toggleSaTrendChart()">그래프 펼쳐보기 ▾</button>
+            <div id="saTrendChartWrap" style="display:none; margin-top:12px;"></div>
+            <button type="button" class="filter-reset-btn" id="saTrendToggleBtn" onclick="toggleSaDailyTable()" style="margin-top:12px;">일별 데이터 펼쳐보기 ▾</button>
+            <div class="scroll-box" id="saDailyTableWrap" style="display:none; margin-top:12px;">
+              <table>
+                <thead>
+                  <tr><th>날짜</th><th>브랜드</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">전환매출</th><th class="num">ROAS</th></tr>
+                </thead>
+                <tbody id="mktNaverSaDailyTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="saDetailPanelCampaign" style="display:none;">
+            <div class="scroll-box">
+              <table>
+                <thead>
+                  <tr><th></th><th>브랜드</th><th>캠페인</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">CPA</th><th>상태</th></tr>
+                </thead>
+                <tbody id="mktNaverSaCampaignTable"></tbody>
+              </table>
+            </div>
+            <button type="button" class="filter-reset-btn" id="saCampaignShowMoreBtn" onclick="toggleSaCampaignShowAll()" style="margin-top:10px; display:none;"></button>
           </div>
 
           <div id="saDetailPanelKeyword">
@@ -2222,6 +2217,7 @@
   let saFilter = { period: 'thisMonth', brand: '', compare: 'prevPeriod' };
   let saTrendDays = [];
   let saCampaignAllRows = [];
+  let saCampaignShowAll = false;
   let saKeywordShowAll = false;
   let saDetailTabState = 'keyword';
 
@@ -2255,10 +2251,9 @@
     renderSaBrandTabs();
     renderSaBrandDetail(from, to, cmp);
     renderSaTrendChart(from, to);
-    // 특정 브랜드를 선택하면 여러 브랜드를 훑는 "오늘의 광고 진단" 대신 그 브랜드의
-    // 캠페인 성과를 바로 보여준다(전체 브랜드일 때는 기존처럼 진단을 보여줌).
+    // 특정 브랜드를 선택하면 여러 브랜드를 훑는 "오늘의 광고 진단"은 숨긴다
+    // (그 브랜드의 캠페인 성과는 아래 "상세 성과 › 캠페인 성과" 탭에서 항상 볼 수 있음).
     document.getElementById('saDiagnosisSection').style.display = saFilter.brand ? 'none' : '';
-    document.getElementById('saBrandCampaignSection').style.display = saFilter.brand ? '' : 'none';
     if (!saFilter.brand) renderSaDiagnosis(from, to);
     renderSaDetailRange(from, to);
     if (document.getElementById('saDailyTableWrap').style.display !== 'none') renderSaDailyTable();
@@ -2582,13 +2577,12 @@
     const brandLabel = saFilter.brand ? naverSaBrandName(saFilter.brand) + '만' : '전 브랜드';
     noteEl.textContent = `${periodLabel(saFilter.period, from, to)} · ${brandLabel} · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산`;
 
-    // ---- 캠페인별 성과(SA만) — 브랜드를 선택했을 때만 위쪽 캠페인 성과 패널에 쓴다 ----
-    if (saFilter.brand) {
-      const campaignDailyRows = allSaCampaignDailyRows.filter((r) =>
-        r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && r.channel === saFilter.brand);
-      saCampaignAllRows = aggregateSaCampaignDaily(campaignDailyRows);
-      renderSaBrandCampaignPanel();
-    }
+    // ---- 캠페인별 성과(SA만) ----
+    const campaignDailyRows = allSaCampaignDailyRows.filter((r) =>
+      r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && (!saFilter.brand || r.channel === saFilter.brand));
+    saCampaignAllRows = aggregateSaCampaignDaily(campaignDailyRows);
+    saCampaignShowAll = false;
+    renderSaCampaignTable();
 
     // ---- 키워드별 성과(SA+파워링크): 파생값 + 성과 상태(우수/주의/낭비/매출미집계) 계산 ----
     const kwDailyRows = allSaKeywordDailyRows.filter((r) =>
@@ -2631,15 +2625,15 @@
     document.querySelectorAll('#saDetailTabs .ad-type-filter-btn').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.satab === tab);
     });
+    document.getElementById('saDetailPanelChart').style.display = tab === 'chart' ? '' : 'none';
+    document.getElementById('saDetailPanelCampaign').style.display = tab === 'campaign' ? '' : 'none';
     document.getElementById('saDetailPanelKeyword').style.display = tab === 'keyword' ? '' : 'none';
     document.getElementById('saDetailPanelWaste').style.display = tab === 'waste' ? '' : 'none';
   }
 
   const SA_STATUS_LABEL = { good: '우수', caution: '주의', waste: '낭비', 'no-revenue': '매출미집계', normal: '-' };
 
-  // 브랜드 탭에서 특정 브랜드를 선택했을 때 "오늘의 광고 진단" 자리에 그 브랜드의
-  // 캠페인 성과를 보여준다(브랜드가 하나뿐이라 페이지네이션/펼쳐보기 없이 전부 보여줌).
-  function renderSaBrandCampaignPanel() {
+  function renderSaCampaignTable() {
     const convertingRows = saCampaignAllRows.filter((r) => Number(r.conversions) > 0 && Number(r.revenue) > 0);
     const convertingSpend = convertingRows.reduce((s, r) => s + Number(r.spend), 0);
     const convertingConversions = convertingRows.reduce((s, r) => s + Number(r.conversions), 0);
@@ -2647,18 +2641,20 @@
     const avgSpendAll = saCampaignAllRows.length ? saCampaignAllRows.reduce((s, r) => s + Number(r.spend), 0) / saCampaignAllRows.length : 0;
     const ctx = { avgCpaConverting, avgSpendAll, target: MARKETING_ROAS_TARGET };
 
-    const enriched = saCampaignAllRows.map((r) => {
-      const spend = Number(r.spend), clicks = Number(r.clicks), conversions = Number(r.conversions), revenue = Number(r.revenue);
+    const enriched = saCampaignAllRows.map((r, idx) => {
+      const spend = Number(r.spend), impressions = Number(r.impressions), clicks = Number(r.clicks),
+        conversions = Number(r.conversions), revenue = Number(r.revenue);
       const roas = roasOf({ spend, revenue }), cpa = cpaOf({ spend, conversions });
+      const ctr = ctrOf({ impressions, clicks }), cpc = cpcOf({ clicks, spend });
       const status = classifySaRowStatus({ spend, clicks, conversions, revenue, roas, cpa }, ctx);
-      return { campaign: r.campaign, spend, conversions, revenue, roas, cpa, status };
+      return { idx, brandName: naverSaBrandName(r.channel), campaign: r.campaign, spend, impressions, clicks, conversions, revenue, roas, cpa, ctr, cpc, status };
     }).sort((a, b) => b.spend - a.spend);
 
-    const brandName = naverSaBrandName(saFilter.brand);
-    document.getElementById('saBrandCampaignTitle').textContent = `${brandName} 캠페인 성과`;
-    document.getElementById('saBrandCampaignNote').textContent = periodLabel(saFilter.period, currentSaRange().from, currentSaRange().to) + ' · SA만';
-    document.getElementById('saBrandCampaignTable').innerHTML = enriched.length ? enriched.map((r) => `
+    const shown = saCampaignShowAll ? enriched : enriched.slice(0, 10);
+    document.getElementById('mktNaverSaCampaignTable').innerHTML = shown.length ? shown.map((r) => `
       <tr class="${saRowClass(r.status)}">
+        <td class="sa-expand-toggle" onclick="toggleSaCampaignDetail(${r.idx})">▸</td>
+        <td>${escapeAttr(r.brandName)}</td>
         <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
         <td class="num">${won(Math.round(r.spend))}</td>
         <td class="num">${won(Math.round(r.revenue))}</td>
@@ -2667,7 +2663,26 @@
         <td class="num">${r.conversions > 0 ? won(Math.round(r.cpa)) : '-'}</td>
         <td><span class="sa-status-tag ${r.status}">${SA_STATUS_LABEL[r.status]}</span></td>
       </tr>
-    `).join('') : '<tr><td colspan="7" class="mkt-empty-row">선택한 기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
+      <tr class="sa-detail-row" id="saCampaignDetail${r.idx}" style="display:none;">
+        <td colspan="9">노출 ${r.impressions.toLocaleString('ko-KR')} · 클릭 ${r.clicks.toLocaleString('ko-KR')} · CTR ${r.ctr.toFixed(2)}% · CPC ${won(Math.round(r.cpc))}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="9" class="mkt-empty-row">선택한 기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
+
+    const moreBtn = document.getElementById('saCampaignShowMoreBtn');
+    if (enriched.length > 10) {
+      moreBtn.style.display = '';
+      moreBtn.textContent = saCampaignShowAll ? '접기' : `전체 보기 (${enriched.length}개)`;
+    } else {
+      moreBtn.style.display = 'none';
+    }
+  }
+  function toggleSaCampaignDetail(idx) {
+    const row = document.getElementById('saCampaignDetail' + idx);
+    row.style.display = row.style.display === 'none' ? '' : 'none';
+  }
+  function toggleSaCampaignShowAll() {
+    saCampaignShowAll = !saCampaignShowAll;
+    renderSaCampaignTable();
   }
   function toggleSaKeywordDetail(idx) {
     const row = document.getElementById('saKeywordDetail' + idx);
