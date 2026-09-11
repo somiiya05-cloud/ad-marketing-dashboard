@@ -618,7 +618,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" id="saDiagnosisSection">
           <div class="panel-head">
             <h2>오늘의 광고 진단</h2>
             <span class="panel-note">SA+파워링크 합산(낭비 키워드는 SA+파워링크 키워드 전체) · 확인·조정이 필요한 항목을 자동으로 정리했어요</span>
@@ -629,6 +629,21 @@
                 <tr><th>우선순위</th><th>브랜드</th><th>진단 내용</th><th>근거 수치</th><th>추천 조치</th><th>처리 상태</th></tr>
               </thead>
               <tbody id="saDiagnosisTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="saBrandCampaignSection" style="display:none;">
+          <div class="panel-head">
+            <h2 id="saBrandCampaignTitle">캠페인 성과</h2>
+            <span class="panel-note" id="saBrandCampaignNote"></span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>캠페인</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">전환</th><th class="num">CPA</th><th>상태</th></tr>
+              </thead>
+              <tbody id="saBrandCampaignTable"></tbody>
             </table>
           </div>
         </section>
@@ -2266,7 +2281,11 @@
     renderSaBrandTabs();
     renderSaBrandDetail(from, to, cmp);
     renderSaTrendChart(from, to);
-    renderSaDiagnosis(from, to);
+    // 특정 브랜드를 선택하면 여러 브랜드를 훑는 "오늘의 광고 진단" 대신 그 브랜드의
+    // 캠페인 성과를 바로 보여준다(전체 브랜드일 때는 기존처럼 진단을 보여줌).
+    document.getElementById('saDiagnosisSection').style.display = saFilter.brand ? 'none' : '';
+    document.getElementById('saBrandCampaignSection').style.display = saFilter.brand ? '' : 'none';
+    if (!saFilter.brand) renderSaDiagnosis(from, to);
     renderSaDetailRange(from, to);
     if (document.getElementById('saDailyTableWrap').style.display !== 'none') renderSaDailyTable();
   }
@@ -2679,7 +2698,9 @@
       <tr class="sa-detail-row" id="saCampaignDetail${r.idx}" style="display:none;">
         <td colspan="9">노출 ${r.impressions.toLocaleString('ko-KR')} · 클릭 ${r.clicks.toLocaleString('ko-KR')} · CTR ${r.ctr.toFixed(2)}% · CPC ${won(Math.round(r.cpc))}</td>
       </tr>
-    `).join('') : '<tr><td colspan="9" class="mkt-empty-row">선택한 달에 캠페인별 데이터가 아직 없어요.</td></tr>';
+    `).join('') : '<tr><td colspan="9" class="mkt-empty-row">선택한 기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
+
+    if (saFilter.brand) renderSaBrandCampaignPanel(enriched);
 
     const moreBtn = document.getElementById('saCampaignShowMoreBtn');
     if (enriched.length > 10) {
@@ -2688,6 +2709,25 @@
     } else {
       moreBtn.style.display = 'none';
     }
+  }
+
+  // 브랜드 탭에서 특정 브랜드를 선택했을 때 "오늘의 광고 진단" 자리에 그 브랜드의
+  // 캠페인 성과를 보여준다 — 이미 renderSaCampaignTable()이 계산해둔 enriched를 그대로 쓴다.
+  function renderSaBrandCampaignPanel(enriched) {
+    const brandName = naverSaBrandName(saFilter.brand);
+    document.getElementById('saBrandCampaignTitle').textContent = `${brandName} 캠페인 성과`;
+    document.getElementById('saBrandCampaignNote').textContent = periodLabel(saFilter.period, currentSaRange().from, currentSaRange().to) + ' · SA만';
+    document.getElementById('saBrandCampaignTable').innerHTML = enriched.length ? enriched.slice().sort((a, b) => b.spend - a.spend).map((r) => `
+      <tr class="${saRowClass(r.status)}">
+        <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
+        <td class="num">${won(Math.round(r.spend))}</td>
+        <td class="num">${won(Math.round(r.revenue))}</td>
+        <td class="num">${r.roas.toFixed(0)}%</td>
+        <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
+        <td class="num">${r.conversions > 0 ? won(Math.round(r.cpa)) : '-'}</td>
+        <td><span class="sa-status-tag ${r.status}">${SA_STATUS_LABEL[r.status]}</span></td>
+      </tr>
+    `).join('') : '<tr><td colspan="7" class="mkt-empty-row">선택한 기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
   }
   function toggleSaCampaignDetail(idx) {
     const row = document.getElementById('saCampaignDetail' + idx);
