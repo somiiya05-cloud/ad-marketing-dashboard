@@ -333,6 +333,10 @@
   .sa-expand-toggle { cursor: pointer; color: #64748b; text-align: center; width: 22px; user-select: none; }
   .sa-truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sa-detail-row td { background: rgba(15,23,42,.025); color: #64748b; font-size: 12px; padding: 7px 10px 7px 32px; }
+  .sa-nested-kw-table { width: 100%; margin-top: 8px; border-collapse: collapse; }
+  .sa-nested-kw-table th, .sa-nested-kw-table td { padding: 6px 10px; font-size: 12px; color: #334155; text-align: left; border-bottom: 1px solid rgba(15,23,42,.06); }
+  .sa-nested-kw-table th { color: #94a3b8; font-weight: 600; }
+  .sa-nested-kw-table td.num, .sa-nested-kw-table th.num { text-align: right; }
 
   /* ---- 로딩 스켈레톤 ---- */
   .skeleton-block {
@@ -2577,12 +2581,12 @@
     const brandLabel = saFilter.brand ? naverSaBrandName(saFilter.brand) + '만' : '전 브랜드';
     noteEl.textContent = `${periodLabel(saFilter.period, from, to)} · ${brandLabel} · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산`;
 
-    // ---- 캠페인별 성과(SA만) ----
+    // ---- 캠페인별 성과(SA만) — 표 렌더는 키워드 데이터(아래)까지 준비된 뒤에 한다.
+    // 캠페인 행을 펼치면 그 캠페인의 키워드 목록(naverSaKeywordAllRows)을 같이 보여주기 때문.
     const campaignDailyRows = allSaCampaignDailyRows.filter((r) =>
       r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && (!saFilter.brand || r.channel === saFilter.brand));
     saCampaignAllRows = aggregateSaCampaignDaily(campaignDailyRows);
     saCampaignShowAll = false;
-    renderSaCampaignTable();
 
     // ---- 키워드별 성과(SA+파워링크): 파생값 + 성과 상태(우수/주의/낭비/매출미집계) 계산 ----
     const kwDailyRows = allSaKeywordDailyRows.filter((r) =>
@@ -2611,6 +2615,7 @@
     syncNaverSaKwTabButtons();
     saKeywordShowAll = false;
     renderNaverSaKeywordSection();
+    renderSaCampaignTable();
 
     // 연속 무전환 일수는 실제로 동기화된 마지막 날짜부터 거슬러 세야 한다(오늘은 아직
     // 어제치 동기화 전이라 데이터가 없는 게 정상 — 그 날을 기준으로 잡으면 항상 0일로 나옴).
@@ -2633,6 +2638,34 @@
 
   const SA_STATUS_LABEL = { good: '우수', caution: '주의', waste: '낭비', 'no-revenue': '매출미집계', normal: '-' };
 
+  // 캠페인 행을 펼쳤을 때 그 캠페인에 속한 키워드들을 보여준다(naverSaKeywordAllRows는
+  // 이미 같은 기간·브랜드 필터로 계산돼 있으므로 캠페인+채널로만 다시 걸러내면 된다).
+  function saCampaignKeywordsHtml(channel, campaign) {
+    const rows = naverSaKeywordAllRows
+      .filter((k) => k.channel === channel && k.campaign === campaign)
+      .sort((a, b) => b.spend - a.spend);
+    if (!rows.length) return '<div style="padding:6px 0; color:#94a3b8;">이 캠페인에 표시할 키워드 데이터가 없어요.</div>';
+    return `
+      <table class="sa-nested-kw-table">
+        <thead>
+          <tr><th>키워드</th><th>광고그룹</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">클릭</th><th>상태</th></tr>
+        </thead>
+        <tbody>
+          ${rows.map((k) => `
+            <tr class="${saRowClass(k.status)}">
+              <td>${escapeAttr(k.keyword)}</td>
+              <td class="sa-truncate" title="${escapeAttr(k.adgroup)}">${escapeAttr(k.adgroup)}</td>
+              <td class="num">${won(Math.round(k.spend))}</td>
+              <td class="num">${won(Math.round(k.revenue))}</td>
+              <td class="num">${k.roas.toFixed(0)}%</td>
+              <td class="num">${k.clicks.toLocaleString('ko-KR')}</td>
+              <td><span class="sa-status-tag ${k.status}">${SA_STATUS_LABEL[k.status]}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
   function renderSaCampaignTable() {
     const convertingRows = saCampaignAllRows.filter((r) => Number(r.conversions) > 0 && Number(r.revenue) > 0);
     const convertingSpend = convertingRows.reduce((s, r) => s + Number(r.spend), 0);
@@ -2647,7 +2680,7 @@
       const roas = roasOf({ spend, revenue }), cpa = cpaOf({ spend, conversions });
       const ctr = ctrOf({ impressions, clicks }), cpc = cpcOf({ clicks, spend });
       const status = classifySaRowStatus({ spend, clicks, conversions, revenue, roas, cpa }, ctx);
-      return { idx, brandName: naverSaBrandName(r.channel), campaign: r.campaign, spend, impressions, clicks, conversions, revenue, roas, cpa, ctr, cpc, status };
+      return { idx, channel: r.channel, brandName: naverSaBrandName(r.channel), campaign: r.campaign, spend, impressions, clicks, conversions, revenue, roas, cpa, ctr, cpc, status };
     }).sort((a, b) => b.spend - a.spend);
 
     const shown = saCampaignShowAll ? enriched : enriched.slice(0, 10);
@@ -2664,7 +2697,10 @@
         <td><span class="sa-status-tag ${r.status}">${SA_STATUS_LABEL[r.status]}</span></td>
       </tr>
       <tr class="sa-detail-row" id="saCampaignDetail${r.idx}" style="display:none;">
-        <td colspan="9">노출 ${r.impressions.toLocaleString('ko-KR')} · 클릭 ${r.clicks.toLocaleString('ko-KR')} · CTR ${r.ctr.toFixed(2)}% · CPC ${won(Math.round(r.cpc))}</td>
+        <td colspan="9">
+          노출 ${r.impressions.toLocaleString('ko-KR')} · 클릭 ${r.clicks.toLocaleString('ko-KR')} · CTR ${r.ctr.toFixed(2)}% · CPC ${won(Math.round(r.cpc))}
+          ${saCampaignKeywordsHtml(r.channel, r.campaign)}
+        </td>
       </tr>
     `).join('') : '<tr><td colspan="9" class="mkt-empty-row">선택한 기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
 
