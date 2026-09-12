@@ -248,6 +248,11 @@
   .sa-filter-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: #64748b; }
   .sa-filter-meta-item { display: inline-flex; align-items: center; gap: 4px; }
   .sa-filter-note { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  .sa-today-notice {
+    margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 12px; line-height: 1.6;
+    background: rgba(249,115,22,.10); color: #9a3412; border: 1px solid rgba(249,115,22,.25);
+  }
+  .sa-today-notice b { font-weight: 800; }
 
   /* ---- 브랜드 대형 카드 ---- */
   .brand-card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 4px; }
@@ -559,12 +564,14 @@
 
       <div class="sa-filter-bar">
         <div class="filter-group" id="saPeriodTabs">
+          <button type="button" class="ad-type-filter-btn" data-saperiod="today" onclick="setSaPeriod('today')">오늘</button>
           <button type="button" class="ad-type-filter-btn" data-saperiod="yesterday" onclick="setSaPeriod('yesterday')">하루전</button>
           <button type="button" class="ad-type-filter-btn" data-saperiod="last3" onclick="setSaPeriod('last3')">3일</button>
           <button type="button" class="ad-type-filter-btn" data-saperiod="thisMonth" onclick="setSaPeriod('thisMonth')">한달</button>
           <button type="button" class="btn-primary" id="saManualSyncBtn" onclick="triggerSaManualSync()">지금 동기화</button>
           <span class="sa-filter-meta-item" id="saManualSyncStatus"></span>
         </div>
+        <div class="sa-today-notice" id="saTodayNotice" style="display:none;"></div>
       </div>
 
       <div id="mktNaverSaEmpty" class="mkt-empty" style="display:none">
@@ -2150,14 +2157,28 @@
     document.getElementById('mktNaverSaSubtitle').textContent =
       `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS_DISPLAY.length}개 중 데이터 있는 브랜드 기준${lastUpdated ? ` · 마지막 업데이트: ${formatUpdatedAt(lastUpdated)}` : ''}`;
 
+    // 오늘은 아직 하루가 안 끝났고 마지막 동기화 시점까지만 들어와 있다 — 어제(하루 전체)와
+    // 나란히 놓으면 낮게 보이는 게 정상이라 그 이유를 위에 못 박아 둔다.
+    const todayNotice = document.getElementById('saTodayNotice');
+    if (saFilter.period === 'today') {
+      todayNotice.style.display = '';
+      todayNotice.innerHTML = '오늘은 <b>아직 진행 중</b>이라 마지막 동기화 시점까지의 수치입니다'
+        + (lastUpdated ? ` (${formatUpdatedAt(lastUpdated)} 기준)` : '')
+        + ' · 하루가 안 끝나서 「전일 대비」가 낮게 나오는 건 정상입니다 · 지금 값으로 당기려면 「지금 동기화」를 누르고 1~2분 뒤 새로고침하세요.';
+    } else {
+      todayNotice.style.display = 'none';
+    }
+
     renderSaPeriodTabs();
     renderSaBrandTabs();
     renderSaBrandDetail(from, to, cmp);
+    // 진단의 「낭비 광고비 발생」 항목이 naverSaKeywordAllRows 를 읽으므로, 그 배열을 채우는
+    // renderSaDetailRange 를 먼저 돌린다 — 안 그러면 직전에 보던 기간의 키워드가 그대로 섞인다.
+    renderSaDetailRange(from, to);
     // 특정 브랜드를 선택하면 여러 브랜드를 훑는 "오늘의 광고 진단"은 숨긴다
     // (그 브랜드의 캠페인 성과는 아래 "상세 성과 › 캠페인 성과" 탭에서 항상 볼 수 있음).
     document.getElementById('saDiagnosisSection').style.display = saFilter.brand ? 'none' : '';
     if (!saFilter.brand) renderSaDiagnosis(from, to);
-    renderSaDetailRange(from, to);
   }
 
   // 브랜드별 핵심 지표를 탭으로 전환("전체" + 브랜드별) — 탭을 누르면 바로 아래 kpi 카드가 그 브랜드 기준으로 바뀐다.
@@ -2248,6 +2269,10 @@
 
   function renderSaDiagnosis(from, to) {
     const items = [];
+    // 오늘 하루만 보는 중이면 광고비는 바로 찍히는데 전환·매출은 늦게 붙는다 — 그 상태로
+    // ROAS 를 판정하면 멀쩡한 브랜드가 전부 「긴급」으로 뜬다. 매출이 아직 0인 브랜드는
+    // 판정을 미루고 그 사실만 알린다. (기간이 여러 날이면 옛 날 매출이 있으므로 그대로 판정)
+    const todayOnly = (from === to && to === todayISO());
     const channels = SA_CARD_BRANDS.map((b) => b.channel);
     const totalAgg = sumRows(saDailyRowsForBrands(channels, from, to));
     // 브랜드 탭에서 특정 브랜드를 선택했으면 진단도 그 브랜드만 보여준다(비중은 전체 대비로 그대로 계산).
@@ -2260,7 +2285,9 @@
       const goal = brandGoal(b.channel);
       const share = totalAgg.spend > 0 ? (agg.spend / totalAgg.spend * 100) : 0;
 
-      if (roas < goal.min) {
+      if (todayOnly && agg.revenue === 0) {
+        items.push({ priority: '확인', brand: b.name, title: '오늘 전환 집계 전', evidence: `광고비 ${won(Math.round(agg.spend))}, 매출 아직 0원`, action: '하루가 끝난 뒤 다시 보세요 (ROAS 판정 보류)', id: saDiagId([from, to, b.channel, 'pending-today']) });
+      } else if (roas < goal.min) {
         items.push({ priority: '긴급', brand: b.name, title: '최소 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (최소 ${goal.min}%)`, action: '입찰가·소재 재점검 또는 예산 축소 검토', id: saDiagId([from, to, b.channel, 'low-roas']) });
       } else if (roas < goal.target) {
         items.push({ priority: '주의', brand: b.name, title: '목표 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (목표 ${goal.target}%)`, action: '캠페인별 성과 확인', id: saDiagId([from, to, b.channel, 'below-target']) });
@@ -2334,7 +2361,13 @@
   function renderSaDetailRange(from, to) {
     const noteEl = document.getElementById('saDetailNote');
     const brandLabel = saFilter.brand ? naverSaBrandName(saFilter.brand) + '만' : '전 브랜드';
-    noteEl.textContent = `${periodLabel(saFilter.period, from, to)} · ${brandLabel} · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산`;
+    // 캠페인·키워드 상세는 하루 단위로 다음 날 들어온다 — 오늘을 고르면 비어 있는 게 정상이라
+    // 그냥 "데이터가 없습니다"로 두지 않고 어디까지 들어와 있는지를 밝힌다.
+    const maxDateOf = (rows) => rows.reduce((m, r) => (r.date > m ? r.date : m), '');
+    const detailLatest = [maxDateOf(allSaCampaignDailyRows), maxDateOf(allSaKeywordDailyRows)].sort().pop();
+    const detailPending = detailLatest && to > detailLatest;
+    noteEl.textContent = `${periodLabel(saFilter.period, from, to)} · ${brandLabel} · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산`
+      + (detailPending ? ` · ⚠ 캠페인·키워드 상세는 ${detailLatest} 까지만 있어요 (하루 단위로 다음 날 들어옵니다)` : '');
 
     // ---- 캠페인별 성과(SA만) — 표 렌더는 키워드 데이터(아래)까지 준비된 뒤에 한다.
     // 캠페인 행을 펼치면 그 캠페인의 키워드 목록(naverSaKeywordAllRows)을 같이 보여주기 때문.
