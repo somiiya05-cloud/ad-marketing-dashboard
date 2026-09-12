@@ -244,6 +244,9 @@
     padding: 12px 0 14px; margin: -4px 0 16px; border-bottom: 1px solid rgba(15,23,42,.08);
   }
   .sa-brand-tab-row { margin-top: 8px; }
+  /* 고정바 안에 들어간 핵심 지표 패널 — 바깥 여백을 줄여 고정바가 덜 두꺼워지게 한다. */
+  .sa-kpi-panel { margin: 10px 0 0; padding: 12px 16px; }
+  .sa-kpi-panel .panel-head { margin-bottom: 10px; align-items: flex-start; }
   /* 브랜드가 늘어나면 좁은 화면에서 고정바가 너무 두꺼워진다 — 줄바꿈 대신 가로로 민다. */
   @media (max-width: 900px) {
     .sa-brand-tab-row { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
@@ -591,6 +594,19 @@
         <!-- 브랜드 선택은 이 화면 전체(핵심 지표·진단·상세 성과)에 걸리므로 기간 탭과 같은
              고정바에 둔다. 스크롤을 내려도 어느 브랜드를 보고 있는지 보이고, 바로 바꿀 수 있다. -->
         <div class="filter-group sa-brand-tab-row" id="saBrandTabs"></div>
+        <!-- 핵심 지표도 고정바 안에 둔다. 스크롤을 내려 진단·상세 성과를 보면서도 그 브랜드의
+             광고비·ROAS 를 같이 볼 수 있다. 고정바가 두꺼워지므로 접을 수 있게 했고,
+             접었는지는 브라우저에 기억시킨다. -->
+        <section class="panel sa-kpi-panel">
+          <div class="panel-head">
+            <div>
+              <h2 id="saBrandDetailTitle">전체 브랜드 핵심 지표</h2>
+              <span class="panel-note" id="saBrandDetailNote"></span>
+            </div>
+            <button type="button" class="filter-reset-btn" id="saKpiToggle" onclick="toggleSaKpi()">접기 ▴</button>
+          </div>
+          <div class="kpi-row kpi-row-compact" id="saBrandDetailCards"></div>
+        </section>
         <div class="sa-sync-banner" id="saSyncBanner" style="display:none;"></div>
       </div>
 
@@ -599,14 +615,6 @@
       </div>
 
       <div id="mktNaverSaContent">
-        <section class="panel">
-          <div class="panel-head">
-            <h2 id="saBrandDetailTitle">전체 브랜드 핵심 지표</h2>
-            <span class="panel-note" id="saBrandDetailNote"></span>
-          </div>
-          <div class="kpi-row kpi-row-compact" id="saBrandDetailCards"></div>
-        </section>
-
         <section class="panel" id="saDiagnosisSection">
           <div class="panel-head">
             <h2>오늘의 광고 진단</h2>
@@ -2512,6 +2520,23 @@
       });
   }
 
+  // 핵심 지표 접기/펴기. 고정바에 들어가 있어서 펼쳐두면 화면을 꽤 차지한다.
+  let saKpiShown = (() => {
+    try { return localStorage.getItem('saKpiShown') !== '0'; } catch (e) { return true; }
+  })();
+  function applySaKpiState() {
+    const cards = document.getElementById('saBrandDetailCards');
+    const btn = document.getElementById('saKpiToggle');
+    if (!cards || !btn) return;
+    cards.style.display = saKpiShown ? '' : 'none';
+    btn.textContent = saKpiShown ? '접기 ▴' : '펴기 ▾';
+  }
+  function toggleSaKpi() {
+    saKpiShown = !saKpiShown;
+    try { localStorage.setItem('saKpiShown', saKpiShown ? '1' : '0'); } catch (e) {}
+    applySaKpiState();
+  }
+
   function renderSaBrandDetail(from, to, cmp) {
     const channels = saFilter.brand ? [saFilter.brand] : SA_CARD_BRANDS.map((b) => b.channel);
     const label = saFilter.brand ? naverSaBrandName(saFilter.brand) : '전체 브랜드';
@@ -2528,6 +2553,7 @@
     const goal = saFilter.brand ? brandGoal(saFilter.brand) : { target: SA_ROAS_TARGET_DEFAULT, min: SA_ROAS_MIN_DEFAULT };
     const goalDeltaPP = roas - goal.target;
 
+    applySaKpiState();
     document.getElementById('saBrandDetailCards').innerHTML = [
       saKpiCard('광고비', won(Math.round(cur.spend)), deltaLine(cur.spend, cmpAgg.spend, { unit: 'won', neutral: true })),
       saKpiCard('전환매출', won(Math.round(cur.revenue)), deltaLine(cur.revenue, cmpAgg.revenue, { unit: 'won' })),
