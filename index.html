@@ -253,12 +253,6 @@
   .sa-filter-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: #64748b; }
   .sa-filter-meta-item { display: inline-flex; align-items: center; gap: 4px; }
   .sa-filter-note { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-  .sa-today-notice {
-    margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 12px; line-height: 1.6;
-    background: rgba(249,115,22,.10); color: #9a3412; border: 1px solid rgba(249,115,22,.25);
-  }
-  .sa-today-notice b { font-weight: 800; }
-
   /* ---- 「지금 동기화」 진행/완료 알림 ---- */
   .sa-sync-banner {
     display: flex; align-items: center; gap: 12px;
@@ -597,7 +591,6 @@
         <!-- 브랜드 선택은 이 화면 전체(핵심 지표·진단·상세 성과)에 걸리므로 기간 탭과 같은
              고정바에 둔다. 스크롤을 내려도 어느 브랜드를 보고 있는지 보이고, 바로 바꿀 수 있다. -->
         <div class="filter-group sa-brand-tab-row" id="saBrandTabs"></div>
-        <div class="sa-today-notice" id="saTodayNotice" style="display:none;"></div>
         <div class="sa-sync-banner" id="saSyncBanner" style="display:none;"></div>
       </div>
 
@@ -2347,18 +2340,6 @@
 
     document.getElementById('mktNaverSaSubtitle').textContent =
       `${from} ~ ${to} · 브랜드 ${SA_CARD_BRANDS_DISPLAY.length}개 중 데이터 있는 브랜드 기준${lastUpdated ? ` · 마지막 업데이트: ${formatUpdatedAt(lastUpdated)}` : ''}`;
-
-    // 오늘은 아직 하루가 안 끝났고 마지막 동기화 시점까지만 들어와 있다 — 어제(하루 전체)와
-    // 나란히 놓으면 낮게 보이는 게 정상이라 그 이유를 위에 못 박아 둔다.
-    const todayNotice = document.getElementById('saTodayNotice');
-    if (saFilter.period === 'today') {
-      todayNotice.style.display = '';
-      todayNotice.innerHTML = '오늘은 <b>아직 진행 중</b>이라 마지막 동기화 시점까지의 수치입니다'
-        + (lastUpdated ? ` (${formatUpdatedAt(lastUpdated)} 기준)` : '')
-        + ' · 하루가 안 끝나서 「전일 대비」가 낮게 나오는 건 정상입니다 · 지금 값으로 당기려면 「지금 동기화」를 누르세요(끝나면 알아서 다시 불러옵니다).';
-    } else {
-      todayNotice.style.display = 'none';
-    }
 
     renderSaPeriodTabs();
     renderSaBrandTabs();
