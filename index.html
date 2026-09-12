@@ -922,7 +922,14 @@
 
     syncMarketingNavActive(view, brandChannel);
 
-    if (view === 'marketing') loadMarketingData();
+    if (view === 'marketing') {
+      loadMarketingData();
+      // 회사·브랜드 매출은 매출 원장에서 나온다 — 늦게 도착하므로 오면 그때 다시 그린다.
+      ensureSalesData().then(() => {
+        const sel = document.getElementById('mktMonthSelect');
+        if (sel && sel.value) renderMarketingMonth(sel.value);
+      });
+    }
     if (view === 'marketing-brand') {
       currentMarketingBrand = brandChannel;
       Promise.all([loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData(), loadMarketingDailyData()]).then(() => renderMarketingBrandView());
@@ -1133,28 +1140,54 @@
   }
 
   // ---- 매출 원장 (sales_transactions) — 광고매출/광고비ROI 계산에 사용 ----
+  // 8만 행이 넘어서 다 받는 데 6~10초 걸린다(2026-09-12 측정). 이걸 쓰는 화면은 「마케팅」 월간과
+  // 「상품별 광고비ROI」 둘뿐이라, 첫 화면부터 미리 받지 않고 그 화면에 들어갈 때 한 번만 받는다.
+  // 네이버SA·GFA 는 이 데이터를 안 쓰므로 그만큼 빨리 뜬다.
   let allRows = [];
+  let salesLoadPromise = null;
+  function ensureSalesData() {
+    if (!salesLoadPromise) salesLoadPromise = loadData();
+    return salesLoadPromise;
+  }
+
+  // Supabase(PostgREST)가 한 번에 1,000행까지만 주기 때문에 나눠 받아야 하는데, 한 장씩
+  // 순서대로 기다리면 8만 행 = 83번 왕복이라 9초 넘게 걸렸다(2026-09-12 측정: 8.9초).
+  // 전체 개수를 먼저 물어보고 페이지를 동시에 받는다. 페이지 번호로 자리를 잡아 넣으므로
+  // 도착 순서가 뒤섞여도 최종 정렬(sale_date, id)은 그대로다.
+  const SALES_PAGE_SIZE = 1000;
+  const SALES_PAGE_CONCURRENCY = 8;
 
   async function loadData() {
-    const pageSize = 1000;
-    let from = 0;
-    let all = [];
-    while (true) {
-      const { data, error } = await client
-        .from('sales_transactions')
-        .select('*')
-        .order('sale_date', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, from + pageSize - 1);
-      if (error) {
-        console.error('sales_transactions 로드 실패:', error.message);
-        return;
-      }
-      all = all.concat(data || []);
-      if (!data || data.length < pageSize) break;
-      from += pageSize;
+    const { count, error: countError } = await client
+      .from('sales_transactions')
+      .select('*', { count: 'exact', head: true });
+    if (countError) {
+      console.error('sales_transactions 개수 조회 실패:', countError.message);
+      return;
     }
-    allRows = all;
+    const pages = Math.ceil((count || 0) / SALES_PAGE_SIZE);
+    const chunks = new Array(pages);
+    let nextPage = 0;
+    let failed = null;
+    async function worker() {
+      while (nextPage < pages && !failed) {
+        const page = nextPage++;
+        const { data, error } = await client
+          .from('sales_transactions')
+          .select('*')
+          .order('sale_date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(page * SALES_PAGE_SIZE, page * SALES_PAGE_SIZE + SALES_PAGE_SIZE - 1);
+        if (error) { failed = error; return; }
+        chunks[page] = data || [];
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(SALES_PAGE_CONCURRENCY, pages) }, worker));
+    if (failed) {
+      console.error('sales_transactions 로드 실패:', failed.message);
+      return;
+    }
+    allRows = chunks.flat();
   }
 
   const AGGREGATE_PLACEHOLDER_SUFFIX = ' (일별 합계·미분류)';
@@ -1243,16 +1276,24 @@
   // 1000행을 넘을 수 있는 테이블은 .range()로 끝까지 페이지네이션해서 가져와야 한다.
   async function fetchAllRows(table, orderCol) {
     const PAGE = 1000;
-    let all = [];
-    let from = 0;
-    while (true) {
-      const { data, error } = await client.from(table).select('*').order(orderCol, { ascending: true }).range(from, from + PAGE - 1);
-      if (error) return [];
-      all = all.concat(data || []);
-      if (!data || data.length < PAGE) break;
-      from += PAGE;
+    // loadData 와 같은 이유로, 개수를 먼저 세고 페이지를 동시에 받는다(순서대로 기다리지 않는다).
+    const { count, error: countError } = await client.from(table).select('*', { count: 'exact', head: true });
+    if (countError) return [];
+    const pages = Math.ceil((count || 0) / PAGE);
+    const chunks = new Array(pages);
+    let nextPage = 0;
+    let failed = false;
+    async function worker() {
+      while (nextPage < pages && !failed) {
+        const page = nextPage++;
+        const { data, error } = await client.from(table).select('*').order(orderCol, { ascending: true })
+          .range(page * PAGE, page * PAGE + PAGE - 1);
+        if (error) { failed = true; return; }
+        chunks[page] = data || [];
+      }
     }
-    return all;
+    await Promise.all(Array.from({ length: Math.min(8, pages) }, worker));
+    return failed ? [] : chunks.flat();
   }
   async function loadSaDetailDailyData() {
     try {
@@ -1329,8 +1370,11 @@
       ? `전월 대비 <span class="${revenueChangePctAll >= 0 ? 'trend-up' : 'trend-down'}">${revenueChangePctAll >= 0 ? '+' : ''}${revenueChangePctAll.toFixed(1)}%</span>`
       : `광고비 ${won(Math.round(totalSpend))} 사용`;
 
+    // 매출 원장이 아직 안 왔으면 회사 매출·광고비 비중이 0 으로 보인다 — 그게 진짜 0 인지
+    // 아직 안 온 건지 구분되게 자막에 밝혀 둔다(오면 renderMarketingMonth 가 다시 그린다).
     document.getElementById('mktSubtitle').textContent =
-      (monthStr ? monthStr + ' · ' : '') + '전 채널 통합 · 채널 ' + rows.length.toLocaleString('ko-KR') + '개';
+      (monthStr ? monthStr + ' · ' : '') + '전 채널 통합 · 채널 ' + rows.length.toLocaleString('ko-KR') + '개'
+      + (allRows.length ? '' : ' · 매출 불러오는 중...');
 
     document.getElementById('mktCards').innerHTML = `
       <div class="kpi-card">
@@ -3690,7 +3734,7 @@
   }
 
   function initProductAdRatioView() {
-    Promise.all([loadProductAdSpendData(), loadProductCostData(), loadVendorFeeRates()]).then(() => {
+    Promise.all([loadProductAdSpendData(), loadProductCostData(), loadVendorFeeRates(), ensureSalesData()]).then(() => {
       renderProductAdRatioResult();
       renderPaCompareChips();
       renderPaCompareResult();
@@ -4025,8 +4069,9 @@
     }
   }
 
-  // ---- 부트스트랩: 매출 원장(sales_transactions)을 미리 불러와서 광고매출/ROI 계산에 대비합니다 ----
-  loadData();
+  // ---- 매출 원장(sales_transactions)은 여기서 미리 받지 않습니다 ----
+  // 8만 행이라 6~10초가 걸리는데, 쓰는 화면은 「마케팅」 월간과 「상품별 광고비ROI」 둘뿐입니다.
+  // 그 화면에 들어갈 때 ensureSalesData() 가 한 번만 받아옵니다.
 </script>
 </body>
 </html>
