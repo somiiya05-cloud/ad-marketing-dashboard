@@ -270,6 +270,7 @@
   .sa-sync-dot.failure { background: #dc2626; }
   .sa-sync-dot.running { background: #f59e0b; }
   .sa-sync-dot.other { background: #94a3b8; }
+  .sa-sync-run-note { font-size: 11px; color: #94a3b8; }
 
   /* ---- 브랜드 대형 카드 ---- */
   .brand-card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 4px; }
@@ -2472,7 +2473,10 @@
       if (!last) return `<div class="sa-sync-run-row"><span class="sa-sync-run-name">${name}</span><span>실행 기록 없음</span></div>`;
       const dots = runs.map((r) => `<span class="sa-sync-dot ${saRunClass(r)}" title="${escapeAttr(formatUpdatedAt(r.createdAt) + ' ' + saRunText(r))}"></span>`).join('');
       const meta = `${formatUpdatedAt(last.createdAt)} · ${saRunText(last)} · ${last.event === 'schedule' ? '자동' : '버튼'}`;
-      return `<div class="sa-sync-run-row"><span class="sa-sync-run-name">${name}</span><span>${dots}</span><span>${escapeAttr(meta)}</span><a href="${escapeAttr(last.url)}" target="_blank" rel="noopener">로그 보기</a></div>`;
+      // 「지금 동기화」가 안 띄우는 워크플로는 버튼을 눌러도 이 줄이 안 움직인다.
+      // 그걸 모르면 옛 결과(특히 실패)가 남아 있는 걸 고장으로 오해한다.
+      const note = (w.byButton === false && w.note) ? `<span class="sa-sync-run-note">${escapeAttr(w.note)}</span>` : '';
+      return `<div class="sa-sync-run-row"><span class="sa-sync-run-name">${name}</span><span>${dots}</span><span>${escapeAttr(meta)}</span><a href="${escapeAttr(last.url)}" target="_blank" rel="noopener">로그 보기</a>${note}</div>`;
     }).join('');
     return rows + '<div class="sa-filter-note">최근 5번 · 왼쪽이 최신 · 초록=성공, 빨강=실패, 주황=실행 중</div>';
   }
