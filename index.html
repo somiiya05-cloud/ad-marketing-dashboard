@@ -635,21 +635,6 @@
       </div>
 
       <div id="mktNaverSaContent">
-        <section class="panel" id="saDiagnosisSection">
-          <div class="panel-head">
-            <h2>오늘의 광고 진단</h2>
-            <span class="panel-note">SA+파워링크 합산(낭비 키워드는 SA+파워링크 키워드 전체) · 확인·조정이 필요한 항목을 자동으로 정리했어요</span>
-          </div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th>우선순위</th><th>브랜드</th><th>진단 내용</th><th>근거 수치</th><th>추천 조치</th><th>처리 상태</th></tr>
-              </thead>
-              <tbody id="saDiagnosisTable"></tbody>
-            </table>
-          </div>
-        </section>
-
         <section class="panel">
           <div class="panel-head">
             <div>
@@ -2376,10 +2361,6 @@
     // 진단의 「낭비 광고비 발생」 항목이 naverSaKeywordAllRows 를 읽으므로, 그 배열을 채우는
     // renderSaDetailRange 를 먼저 돌린다 — 안 그러면 직전에 보던 기간의 키워드가 그대로 섞인다.
     renderSaDetailRange(from, to);
-    // 특정 브랜드를 선택하면 여러 브랜드를 훑는 "오늘의 광고 진단"은 숨긴다
-    // (그 브랜드의 캠페인 성과는 아래 "상세 성과 › 캠페인 성과" 탭에서 항상 볼 수 있음).
-    document.getElementById('saDiagnosisSection').style.display = saFilter.brand ? 'none' : '';
-    if (!saFilter.brand) renderSaDiagnosis(from, to);
   }
 
   // 브랜드별 핵심 지표를 탭으로 전환("전체" + 브랜드별) — 탭을 누르면 바로 아래 kpi 카드가 그 브랜드 기준으로 바뀐다.
@@ -2638,70 +2619,6 @@
   }
   function setSaDiagStatus(id, value) {
     try { localStorage.setItem('saDiag_' + id, value); } catch (e) {}
-  }
-  function diagPriorityClass(p) {
-    return p === '긴급' ? 'waste' : p === '주의' ? 'caution' : p === '우수' ? 'good' : 'info';
-  }
-
-  function renderSaDiagnosis(from, to) {
-    const items = [];
-    // 오늘 하루만 보는 중이면 광고비는 바로 찍히는데 전환·매출은 늦게 붙는다 — 그 상태로
-    // ROAS 를 판정하면 멀쩡한 브랜드가 전부 「긴급」으로 뜬다. 매출이 아직 0인 브랜드는
-    // 판정을 미루고 그 사실만 알린다. (기간이 여러 날이면 옛 날 매출이 있으므로 그대로 판정)
-    const todayOnly = (from === to && to === todayISO());
-    const channels = SA_CARD_BRANDS.map((b) => b.channel);
-    const totalAgg = sumRows(saDailyRowsForBrands(channels, from, to));
-    // 브랜드 탭에서 특정 브랜드를 선택했으면 진단도 그 브랜드만 보여준다(비중은 전체 대비로 그대로 계산).
-    const displayBrands = saFilter.brand ? SA_CARD_BRANDS_DISPLAY.filter((b) => b.channel === saFilter.brand) : SA_CARD_BRANDS_DISPLAY;
-
-    for (const b of displayBrands) {
-      const agg = sumRows(saDailyRowsForChannel(b.channel, from, to));
-      if (agg.spend <= 0) continue;
-      const roas = roasOf(agg);
-      const goal = brandGoal(b.channel);
-      const share = totalAgg.spend > 0 ? (agg.spend / totalAgg.spend * 100) : 0;
-
-      if (todayOnly && agg.revenue === 0) {
-        items.push({ priority: '확인', brand: b.name, title: '오늘 전환 집계 전', evidence: `광고비 ${won(Math.round(agg.spend))}, 매출 아직 0원`, action: '하루가 끝난 뒤 다시 보세요 (ROAS 판정 보류)', id: saDiagId([from, to, b.channel, 'pending-today']) });
-      } else if (roas < goal.min) {
-        items.push({ priority: '긴급', brand: b.name, title: '최소 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (최소 ${goal.min}%)`, action: '입찰가·소재 재점검 또는 예산 축소 검토', id: saDiagId([from, to, b.channel, 'low-roas']) });
-      } else if (roas < goal.target) {
-        items.push({ priority: '주의', brand: b.name, title: '목표 ROAS 미달', evidence: `ROAS ${roas.toFixed(0)}% (목표 ${goal.target}%)`, action: '캠페인별 성과 확인', id: saDiagId([from, to, b.channel, 'below-target']) });
-      } else {
-        items.push({ priority: '우수', brand: b.name, title: '목표 ROAS 초과', evidence: `ROAS ${roas.toFixed(0)}%`, action: '예산 확대 검토', id: saDiagId([from, to, b.channel, 'above-target']) });
-      }
-      if (agg.conversions > 0 && agg.revenue === 0) {
-        items.push({ priority: '확인', brand: b.name, title: '전환매출 미집계', evidence: `전환 ${agg.conversions.toLocaleString('ko-KR')}건, 매출 0원`, action: '네이버 전환추적(매출 연동) 설정 확인', id: saDiagId([from, to, b.channel, 'no-revenue']) });
-      }
-      if (share >= 30) {
-        items.push({ priority: '확인', brand: b.name, title: '전체 광고비 비중이 높음', evidence: `광고비 ${won(Math.round(agg.spend))} (비중 ${share.toFixed(0)}%)`, action: '고비용 저효율 캠페인 확인', id: saDiagId([from, to, b.channel, 'high-share']) });
-      }
-    }
-
-    const wasteTop = naverSaKeywordAllRows
-      .filter((r) => r.status === 'waste' && (!saFilter.brand || r.channel === saFilter.brand))
-      .sort((a, b) => b.spend - a.spend).slice(0, 5);
-    for (const r of wasteTop) {
-      items.push({ priority: '긴급', brand: r.brandName, title: '낭비 광고비 발생', evidence: `전환 0건, 광고비 ${won(Math.round(r.spend))} (키워드: ${r.keyword})`, action: '입찰가 축소 또는 중단 검토', id: saDiagId([r.channel, r.campaign, r.keyword, 'waste']) });
-    }
-
-    const order = { '긴급': 0, '주의': 1, '확인': 2, '우수': 3 };
-    items.sort((a, b) => order[a.priority] - order[b.priority]);
-
-    document.getElementById('saDiagnosisTable').innerHTML = items.length ? items.map((it) => `
-      <tr>
-        <td><span class="sa-diag-badge ${diagPriorityClass(it.priority)}">${it.priority}</span></td>
-        <td>${escapeAttr(it.brand)}</td>
-        <td>${escapeAttr(it.title)}</td>
-        <td>${escapeAttr(it.evidence)}</td>
-        <td>${escapeAttr(it.action)}</td>
-        <td>
-          <select class="vendor-select" onchange="setSaDiagStatus('${it.id}', this.value)">
-            ${['확인전', '확인완료', '조치완료'].map((s) => `<option value="${s}" ${getSaDiagStatus(it.id) === s ? 'selected' : ''}>${s}</option>`).join('')}
-          </select>
-        </td>
-      </tr>
-    `).join('') : '<tr><td colspan="6" class="mkt-empty-row">지금은 특별히 확인할 항목이 없어요.</td></tr>';
   }
 
   // ==================== 상세 성과: 월 선택 기반 캠페인/키워드/낭비 키워드 ====================
