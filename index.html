@@ -2206,6 +2206,9 @@
 
   function renderMarketingNaverSaView() {
     renderSaSyncFreshness();
+    applySaSyncPanelState();
+    prefetchSaSyncRuns();
+    if (saSyncRunsShown) loadSaSyncRuns(false);
     const hasAnyData = allMarketingDailyRows.some((r) => r.channel && r.channel.startsWith('네이버'))
       || allMarketingRows.some((r) => r.channel && r.channel.startsWith('네이버'));
     if (!hasAnyData) {
@@ -2311,11 +2314,21 @@
     }).join('');
   }
 
-  let saSyncRunsShown = false;
+  // 펼침 여부는 브라우저에 기억시킨다(기본은 펼침 — 실행 이력이 이 판의 핵심이라서).
+  let saSyncRunsShown = (() => {
+    try { return localStorage.getItem('saSyncRunsShown') !== '0'; } catch (e) { return true; }
+  })();
+  function applySaSyncPanelState() {
+    const box = document.getElementById('saSyncRuns');
+    const btn = document.getElementById('saSyncPanelToggle');
+    if (!box || !btn) return;
+    box.style.display = saSyncRunsShown ? '' : 'none';
+    btn.textContent = saSyncRunsShown ? '실행 이력 접기 ▴' : '실행 이력 펼쳐보기 ▾';
+  }
   function toggleSaSyncPanel() {
     saSyncRunsShown = !saSyncRunsShown;
-    document.getElementById('saSyncRuns').style.display = saSyncRunsShown ? '' : 'none';
-    document.getElementById('saSyncPanelToggle').textContent = saSyncRunsShown ? '실행 이력 접기 ▴' : '실행 이력 펼쳐보기 ▾';
+    try { localStorage.setItem('saSyncRunsShown', saSyncRunsShown ? '1' : '0'); } catch (e) {}
+    applySaSyncPanelState();
     if (saSyncRunsShown) loadSaSyncRuns();
   }
   function saRunClass(run) {
@@ -2340,22 +2353,44 @@
     }).join('');
     return rows + '<div class="sa-filter-note">최근 5번 · 왼쪽이 최신 · 초록=성공, 빨강=실패, 주황=실행 중</div>';
   }
-  function loadSaSyncRuns() {
+  // 누른 뒤에야 부르기 시작하면 1초쯤 빈 화면을 보게 된다(2026-09-12 측정: 1,019ms).
+  // 화면에 들어올 때 미리 받아 캐시에 넣어두고, 펼칠 땐 캐시를 즉시 그린 뒤 뒤에서만 갱신한다.
+  let saSyncRunsCache = null;
+  let saSyncRunsInflight = null;
+
+  function fetchSaSyncRuns(force) {
+    if (saSyncRunsInflight) return saSyncRunsInflight;
+    if (!force && saSyncRunsCache && Date.now() - saSyncRunsCache.at < 15000) {
+      return Promise.resolve(saSyncRunsCache.data);
+    }
+    saSyncRunsInflight = fetch(SA_SYNC_STATUS_URL)
+      .then((r) => r.json())
+      .then((data) => { saSyncRunsCache = { at: Date.now(), data }; return data; })
+      .finally(() => { saSyncRunsInflight = null; });
+    return saSyncRunsInflight;
+  }
+  // 화면에 들어오자마자 한 번 당겨둔다(실패해도 조용히 넘어간다 — 펼칠 때 다시 시도한다).
+  function prefetchSaSyncRuns() {
+    fetchSaSyncRuns(false).catch(() => {});
+  }
+  function loadSaSyncRuns(force) {
     const box = document.getElementById('saSyncRuns');
     if (!box) return;
-    box.innerHTML = '<div class="mkt-empty">실행 이력을 불러오는 중...</div>';
-    fetch(SA_SYNC_STATUS_URL)
-      .then((r) => r.json())
+    if (saSyncRunsCache) box.innerHTML = renderSaSyncRunsHtml(saSyncRunsCache.data);
+    else box.innerHTML = '<div class="mkt-empty">실행 이력을 불러오는 중...</div>';
+    fetchSaSyncRuns(force !== false)
       .then((data) => { box.innerHTML = renderSaSyncRunsHtml(data); })
       .catch((e) => {
+        if (saSyncRunsCache) return; // 이미 보여준 게 있으면 그대로 둔다
         box.innerHTML = '<div class="mkt-empty">실행 이력을 못 읽었어요 (' + escapeAttr(e.message)
           + '). my-dashboard 에 api/naver-sync-status.js 가 배포돼 있는지 확인하세요.</div>';
       });
   }
   // 버튼을 막 눌렀을 땐 아직 queued 라 결과를 알 수 없다 — 몇 번 더 들여다보며 갱신한다.
   function watchSaSyncRuns() {
-    if (!saSyncRunsShown) toggleSaSyncPanel(); else loadSaSyncRuns();
-    [15000, 45000, 90000, 150000].forEach((ms) => setTimeout(() => { if (saSyncRunsShown) loadSaSyncRuns(); }, ms));
+    if (!saSyncRunsShown) toggleSaSyncPanel();
+    else loadSaSyncRuns(true);
+    [15000, 45000, 90000, 150000].forEach((ms) => setTimeout(() => { if (saSyncRunsShown) loadSaSyncRuns(true); }, ms));
   }
 
   // ---- "지금 동기화" 버튼: my-dashboard 프로젝트의 GitHub Actions 트리거 엔드포인트를
@@ -4068,6 +4103,10 @@
       noteEl.textContent += ' · 광고비 데이터 미입력(0원으로 표시)';
     }
   }
+
+  // ---- 동기화 실행 이력은 첫 화면이 그려지기 전에 미리 당겨둡니다 ----
+  // 이 판을 펼칠 때 그제서야 부르면 1초쯤 빈칸을 보게 됩니다. 응답이 작아서 부담이 없습니다.
+  prefetchSaSyncRuns();
 
   // ---- 매출 원장(sales_transactions)은 여기서 미리 받지 않습니다 ----
   // 8만 행이라 6~10초가 걸리는데, 쓰는 화면은 「마케팅」 월간과 「상품별 광고비ROI」 둘뿐입니다.
