@@ -337,6 +337,10 @@
   .roas-warn { color: #c2410c; font-weight: 700; }  /* 최소는 넘었지만 목표 미달 */
   .roas-good { color: #15803d; font-weight: 700; }  /* 목표 이상 */
 
+  /* 키워드 한 줄을 펼쳤을 때 나오는 기간별(1일·3일·한달) 표 */
+  .sa-kw-span-table { max-width: 720px; }
+  .sa-kw-span-range { color: #94a3b8; font-size: 11px; margin-left: 6px; }
+
   /* ---- 상세 성과 탭 / 펼침 행 / 말줄임 ---- */
   .sa-expand-toggle { cursor: pointer; color: #64748b; text-align: center; width: 22px; user-select: none; }
   .sa-truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -672,7 +676,7 @@
             <div class="scroll-box">
               <table>
                 <thead>
-                  <tr><th></th><th>브랜드</th><th>캠페인</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th>광고그룹</th><th>판매채널</th></tr>
+                  <tr><th></th><th id="saKeywordBrandTh">브랜드</th><th>캠페인</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th>광고그룹</th><th>판매채널</th></tr>
                 </thead>
                 <tbody id="mktNaverSaKeywordTable"></tbody>
               </table>
@@ -2855,9 +2859,56 @@
     saCampaignShowAll = !saCampaignShowAll;
     renderSaCampaignTable();
   }
+  // 키워드 한 줄을 펼치면 그 키워드만 1일·3일·한달로 다시 집계해서 보여준다.
+  // 표 본문은 위 기간 탭에서 고른 기간 하나만 보여주므로, 추세를 보려면 이게 필요하다.
+  // (naver_keyword_performance_daily 를 날짜로 걸러 합치는 것이라 추가 조회는 없다.)
+  const SA_KW_SPANS = [
+    { key: 'yesterday', label: '1일' },
+    { key: 'last3', label: '3일' },
+    { key: 'thisMonth', label: '한달' },
+  ];
+  function saKeywordSpanHtml(keywordId, channel) {
+    const goal = brandGoal(channel);
+    const rowsFor = (from, to) => allSaKeywordDailyRows.filter((r) =>
+      r.keyword_id === keywordId && r.channel === channel && r.date >= from && r.date <= to);
+    const body = SA_KW_SPANS.map((span) => {
+      const { from, to } = getPeriodRange(span.key);
+      const agg = rowsFor(from, to).reduce((acc, r) => ({
+        spend: acc.spend + Number(r.spend), revenue: acc.revenue + Number(r.revenue),
+        clicks: acc.clicks + Number(r.clicks), conversions: acc.conversions + Number(r.conversions),
+      }), { spend: 0, revenue: 0, clicks: 0, conversions: 0 });
+      const roas = roasOf(agg);
+      const rank = saRoasRank(roas, channel, agg.spend);
+      const roasCls = SA_ROAS_RANK_CLASS[rank];
+      return `
+        <tr>
+          <td>${span.label}<span class="sa-kw-span-range">${from === to ? from : from + ' ~ ' + to}</span></td>
+          <td class="num">${won(Math.round(agg.spend))}</td>
+          <td class="num">${agg.clicks.toLocaleString('ko-KR')}</td>
+          <td class="num">${agg.conversions.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(Math.round(agg.revenue))}</td>
+          <td class="num ${roasCls}">${roas.toFixed(0)}%</td>
+        </tr>`;
+    }).join('');
+    return `
+      <table class="sa-nested-kw-table sa-kw-span-table">
+        <thead>
+          <tr><th>기간</th><th class="num">광고비</th><th class="num">클릭</th><th class="num">전환</th><th class="num">전환매출</th><th class="num">ROAS</th></tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+      <div class="sa-filter-note">이 키워드만 다시 집계 · 목표 ${goal.target}% · 최소 ${goal.min}%</div>`;
+  }
   function toggleSaKeywordDetail(idx) {
     const row = document.getElementById('saKeywordDetail' + idx);
-    row.style.display = row.style.display === 'none' ? '' : 'none';
+    const open = row.style.display === 'none';
+    row.style.display = open ? '' : 'none';
+    // 펼칠 때 한 번만 그린다(닫았다 열어도 최신으로 다시 그린다).
+    if (open) {
+      const cell = row.querySelector('td');
+      const r = saKeywordShownRows[idx];
+      if (cell && r) cell.innerHTML = saKeywordSpanHtml(r.keyword_id, r.channel);
+    }
   }
 
   // ---- 키워드별 성과 표: 상태탭 상태 ----
@@ -2880,6 +2931,9 @@
     renderNaverSaKeywordSection();
   }
 
+  // 펼침 칸에서 어느 키워드인지 찾으려고 화면에 그린 순서 그대로 들고 있는다.
+  let saKeywordShownRows = [];
+
   function renderNaverSaKeywordSection() {
     let rows = naverSaKeywordAllRows;
     if (naverSaKwFilter.status !== 'all') rows = rows.filter((r) => r.status === naverSaKwFilter.status);
@@ -2895,6 +2949,13 @@
 
     const totalCount = rows.length;
     const shown = saKeywordShowAll ? rows : rows.slice(0, 10);
+    saKeywordShownRows = shown;
+
+    // 브랜드를 고른 상태면 모든 줄이 같은 브랜드라 열이 의미가 없다 — 위 고정바가 이미 말해준다.
+    // 「전체」일 때는 여러 브랜드가 섞이므로 그대로 둔다.
+    const hideBrand = !!saFilter.brand;
+    document.getElementById('saKeywordBrandTh').style.display = hideBrand ? 'none' : '';
+    const colSpan = hideBrand ? 8 : 9;
 
     document.getElementById('mktNaverSaKeywordTable').innerHTML = shown.length
       ? shown.map((r, idx) => {
@@ -2902,7 +2963,7 @@
           return `
             <tr class="${saRowClass(r.status)}">
               <td class="sa-expand-toggle" onclick="toggleSaKeywordDetail(${idx})">▸</td>
-              <td>${escapeAttr(r.brandName)}</td>
+              ${hideBrand ? '' : `<td>${escapeAttr(r.brandName)}</td>`}
               <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
               <td>${dot}${escapeAttr(r.keyword)}</td>
               <td class="num">${won(Math.round(r.spend))}</td>
@@ -2912,11 +2973,11 @@
               <td>${saSalesChannelBadge(r)}</td>
             </tr>
             <tr class="sa-detail-row" id="saKeywordDetail${idx}" style="display:none;">
-              <td colspan="9">전환 ${r.conversions.toLocaleString('ko-KR')} · 클릭 ${r.clicks.toLocaleString('ko-KR')} · CTR ${r.ctr.toFixed(2)}% · CPC ${won(Math.round(r.cpc))}</td>
+              <td colspan="${colSpan}"></td>
             </tr>
           `;
         }).join('')
-      : '<tr><td colspan="9" class="mkt-empty-row">조건에 맞는 키워드가 없어요.</td></tr>';
+      : `<tr><td colspan="${colSpan}" class="mkt-empty-row">조건에 맞는 키워드가 없어요.</td></tr>`;
 
     const moreBtn = document.getElementById('saKeywordShowMoreBtn');
     if (totalCount > 10) {
