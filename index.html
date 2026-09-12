@@ -615,6 +615,7 @@
               <span class="panel-note" id="saBrandDetailNote"></span>
             </div>
             <div class="sa-kpi-head-right">
+              <span class="sa-filter-field-label">광고 유형</span>
               <div class="filter-group sa-kpi-type-tabs" id="saKpiTypeTabs">
                 <button type="button" class="ad-type-filter-btn active" data-sakpitype="all" onclick="setSaKpiType('all')">합산</button>
                 <button type="button" class="ad-type-filter-btn" data-sakpitype="SA" onclick="setSaKpiType('SA')">SA</button>
@@ -2598,7 +2599,7 @@
       typeNote.textContent = `이 기간은 캠페인 일별 데이터가 아직 없어서 ${saKpiType} 만 따로 볼 수 없어요 — 합산으로 보여줍니다.`;
     } else if (useType) {
       typeNote.style.display = '';
-      typeNote.textContent = `${saKpiType} 만 · 캠페인 이름으로 갈랐습니다(PPP = 파워링크, 나머지 = SA)`;
+      typeNote.textContent = `${saKpiType} 만 · 아래 상세 성과에도 같이 걸립니다 · 캠페인 이름으로 갈랐습니다(PPP = 파워링크, 나머지 = SA)`;
     } else {
       typeNote.style.display = 'none';
     }
@@ -2741,19 +2742,25 @@
     const maxDateOf = (rows) => rows.reduce((m, r) => (r.date > m ? r.date : m), '');
     const detailLatest = [maxDateOf(allSaCampaignDailyRows), maxDateOf(allSaKeywordDailyRows)].sort().pop();
     const detailPending = detailLatest && to > detailLatest;
-    noteEl.textContent = `${periodLabel(saFilter.period, from, to)} · ${brandLabel} · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산`
+    // 위 「합산 / SA / 파워링크」는 핵심 지표만이 아니라 이 상세 성과에도 걸린다 —
+    // 카드가 SA 인데 표에 PPP 캠페인이 그대로 보이면 같은 화면에서 두 말을 하는 셈이라서.
+    const typeLabel = saKpiType === 'all' ? 'SA+파워링크 합산' : saKpiType + '만';
+    const typeOk = (r) => saKpiType === 'all'
+      || (saKpiType === '파워링크' ? isPowerLinkCampaign(r.campaign) : !isPowerLinkCampaign(r.campaign));
+
+    noteEl.textContent = `${periodLabel(saFilter.period, from, to)} · ${brandLabel} · ${typeLabel}`
       + (detailPending ? ` · ⚠ 캠페인·키워드 상세는 ${detailLatest} 까지만 있어요 (하루 단위로 다음 날 들어옵니다)` : '');
 
-    // ---- 캠페인별 성과(SA만) — 표 렌더는 키워드 데이터(아래)까지 준비된 뒤에 한다.
+    // ---- 캠페인별 성과 — 표 렌더는 키워드 데이터(아래)까지 준비된 뒤에 한다.
     // 캠페인 행을 펼치면 그 캠페인의 키워드 목록(naverSaKeywordAllRows)을 같이 보여주기 때문.
     const campaignDailyRows = allSaCampaignDailyRows.filter((r) =>
-      r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && (!saFilter.brand || r.channel === saFilter.brand));
+      r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && (!saFilter.brand || r.channel === saFilter.brand) && typeOk(r));
     saCampaignAllRows = aggregateSaCampaignDaily(campaignDailyRows);
     saCampaignShowAll = false;
 
-    // ---- 키워드별 성과(SA+파워링크): 파생값 + 성과 상태(우수/주의/낭비/매출미집계) 계산 ----
+    // ---- 키워드별 성과: 파생값 + 성과 상태(우수/주의/낭비/매출미집계) 계산 ----
     const kwDailyRows = allSaKeywordDailyRows.filter((r) =>
-      r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && (!saFilter.brand || r.channel === saFilter.brand));
+      r.channel && r.channel.startsWith('네이버') && r.date >= from && r.date <= to && (!saFilter.brand || r.channel === saFilter.brand) && typeOk(r));
     const kwRowsRaw = aggregateSaKeywordDaily(kwDailyRows);
     const convertingKw = kwRowsRaw.filter((r) => Number(r.conversions) > 0 && Number(r.revenue) > 0);
     const convertingSpend = convertingKw.reduce((s, r) => s + Number(r.spend), 0);
@@ -3031,7 +3038,13 @@
             </tr>
           `;
         }).join('')
-      : `<tr><td colspan="${colSpan}" class="mkt-empty-row">조건에 맞는 키워드가 없어요.</td></tr>`;
+      : `<tr><td colspan="${colSpan}" class="mkt-empty-row">${
+          // SA(쇼핑검색·브랜드검색)는 네이버가 키워드 단위로 안 내려준다 — 비어 있는 게 정상이라
+          // "없어요"로만 두면 고장으로 보인다. 어디서 봐야 하는지까지 알려준다.
+          saKpiType === 'SA'
+            ? 'SA(쇼핑검색·브랜드검색)는 네이버가 키워드 단위 데이터를 주지 않아요 — 「캠페인 성과」 탭에서 보세요.'
+            : '조건에 맞는 키워드가 없어요.'
+        }</td></tr>`;
 
     const moreBtn = document.getElementById('saKeywordShowMoreBtn');
     if (totalCount > 10) {
