@@ -649,6 +649,7 @@
           </div>
 
           <div id="saDetailPanelCampaign" style="display:none;">
+            <div class="sa-filter-note">효율 낮은 순 · 같은 등급 안에서는 광고비 큰 순 (ROAS 색: 빨강=최소 미달, 주황=목표 미달, 초록=목표 이상)</div>
             <div class="scroll-box">
               <table>
                 <thead>
@@ -2798,7 +2799,15 @@
       const ctr = ctrOf({ impressions, clicks }), cpc = cpcOf({ clicks, spend });
       const status = classifySaRowStatus({ spend, clicks, conversions, revenue, roas, cpa }, ctx);
       return { idx, channel: r.channel, brandName: naverSaBrandName(r.channel), campaign: r.campaign, spend, impressions, clicks, conversions, revenue, roas, cpa, ctr, cpc, status };
-    }).sort((a, b) => b.spend - a.spend);
+    }).sort((a, b) => {
+      // 키워드 표와 같은 기준 — 효율 안 나온 것부터 위로, 같은 등급 안에서는 광고비 큰 순.
+      // 그래야 "돈은 많이 쓰는데 효율이 안 나는 캠페인"이 맨 위에 온다.
+      // 광고비 0 인 줄(판정 불가)은 맨 아래로 간다.
+      const ra = saRoasRank(a.roas, a.channel, a.spend);
+      const rb = saRoasRank(b.roas, b.channel, b.spend);
+      if (ra !== rb) return ra - rb;
+      return b.spend - a.spend;
+    });
 
     const shown = saCampaignShowAll ? enriched : enriched.slice(0, 10);
     document.getElementById('mktNaverSaCampaignTable').innerHTML = shown.length ? shown.map((r) => `
