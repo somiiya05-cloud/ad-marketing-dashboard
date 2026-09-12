@@ -332,6 +332,11 @@
   .sa-status-tag.normal { background: rgba(15,23,42,.06); color: #94a3b8; }
   .sa-status-tag.info { background: rgba(77,124,254,.12); color: #1d4ed8; }
 
+  /* ---- 표 안의 ROAS: 브랜드별 목표/최소 기준으로 한눈에 갈리게 ---- */
+  .roas-bad { color: #dc2626; font-weight: 800; }   /* 최소 미달 */
+  .roas-warn { color: #c2410c; font-weight: 700; }  /* 최소는 넘었지만 목표 미달 */
+  .roas-good { color: #15803d; font-weight: 700; }  /* 목표 이상 */
+
   /* ---- 상세 성과 탭 / 펼침 행 / 말줄임 ---- */
   .sa-expand-toggle { cursor: pointer; color: #64748b; text-align: center; width: 22px; user-select: none; }
   .sa-truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2734,6 +2739,17 @@
     document.getElementById('saDetailPanelWaste').style.display = tab === 'waste' ? '' : 'none';
   }
 
+  // 표 안의 ROAS 칸. 브랜드마다 목표·최소가 달라서(brandGoal) 그 기준으로 색을 나눈다.
+  // 광고비가 0 인 줄은 ROAS 가 0 으로 계산될 뿐 "나쁜 것"이 아니므로 색을 주지 않는다.
+  function saRoasCell(roas, channel, spend) {
+    const value = `${roas.toFixed(0)}%`;
+    if (!(Number(spend) > 0)) return `<td class="num">${value}</td>`;
+    const goal = brandGoal(channel);
+    const cls = roas >= goal.target ? 'roas-good' : (roas < goal.min ? 'roas-bad' : 'roas-warn');
+    const title = `목표 ${goal.target}% · 최소 ${goal.min}%`;
+    return `<td class="num ${cls}" title="${title}">${value}</td>`;
+  }
+
   const SA_STATUS_LABEL = { good: '우수', caution: '주의', waste: '낭비', 'no-revenue': '매출미집계', normal: '-' };
 
   // 캠페인 행을 펼쳤을 때 그 캠페인에 속한 키워드들을 보여준다(naverSaKeywordAllRows는
@@ -2765,7 +2781,7 @@
               <td class="sa-truncate" title="${escapeAttr(k.adgroup)}">${escapeAttr(k.adgroup)}</td>
               <td class="num">${won(Math.round(k.spend))}</td>
               <td class="num">${won(Math.round(k.revenue))}</td>
-              <td class="num">${k.roas.toFixed(0)}%</td>
+              ${saRoasCell(k.roas, k.channel, k.spend)}
               <td class="num">${k.clicks.toLocaleString('ko-KR')}</td>
               <td><span class="sa-status-tag ${k.status}">${SA_STATUS_LABEL[k.status]}</span></td>
             </tr>
@@ -2799,7 +2815,7 @@
         <td class="sa-truncate" title="${escapeAttr(r.campaign)}">${escapeAttr(r.campaign)}</td>
         <td class="num">${won(Math.round(r.spend))}</td>
         <td class="num">${won(Math.round(r.revenue))}</td>
-        <td class="num">${r.roas.toFixed(0)}%</td>
+        ${saRoasCell(r.roas, r.channel, r.spend)}
         <td class="num">${r.conversions.toLocaleString('ko-KR')}</td>
         <td class="num">${r.conversions > 0 ? won(Math.round(r.cpa)) : '-'}</td>
         <td><span class="sa-status-tag ${r.status}">${SA_STATUS_LABEL[r.status]}</span></td>
@@ -2872,7 +2888,7 @@
               <td>${dot}${escapeAttr(r.keyword)}</td>
               <td class="num">${won(Math.round(r.spend))}</td>
               <td class="num">${won(Math.round(r.revenue))}</td>
-              <td class="num">${r.roas.toFixed(0)}%</td>
+              ${saRoasCell(r.roas, r.channel, r.spend)}
               <td class="sa-truncate" title="${escapeAttr(r.adgroup)}">${escapeAttr(r.adgroup)}</td>
               <td>${saSalesChannelBadge(r)}</td>
             </tr>
