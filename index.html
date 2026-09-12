@@ -254,6 +254,23 @@
   }
   .sa-today-notice b { font-weight: 800; }
 
+  /* ---- 동기화 상태 판 ---- */
+  .sa-sync-freshness { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sa-sync-chip { border: 1px solid rgba(15,23,42,.10); border-radius: 10px; padding: 8px 12px; min-width: 190px; }
+  .sa-sync-chip-label { font-size: 11px; color: #64748b; }
+  .sa-sync-chip-value { font-size: 14px; font-weight: 800; margin-top: 2px; }
+  .sa-sync-chip-note { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .sa-sync-chip.stale { border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.05); }
+  .sa-sync-chip.stale .sa-sync-chip-value { color: #dc2626; }
+  .sa-sync-chip.stale .sa-sync-chip-note { color: #dc2626; }
+  .sa-sync-run-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 0; font-size: 12px; border-top: 1px solid rgba(15,23,42,.06); }
+  .sa-sync-run-name { font-weight: 700; min-width: 200px; }
+  .sa-sync-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 3px; }
+  .sa-sync-dot.success { background: #16a34a; }
+  .sa-sync-dot.failure { background: #dc2626; }
+  .sa-sync-dot.running { background: #f59e0b; }
+  .sa-sync-dot.other { background: #94a3b8; }
+
   /* ---- 브랜드 대형 카드 ---- */
   .brand-card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 4px; }
   .brand-card {
@@ -573,6 +590,18 @@
         </div>
         <div class="sa-today-notice" id="saTodayNotice" style="display:none;"></div>
       </div>
+
+      <section class="panel" id="saSyncPanel">
+        <div class="panel-head">
+          <div>
+            <h2>동기화 상태</h2>
+            <span class="panel-note">데이터가 어디까지 들어왔는지와, 최근 동기화가 실제로 성공했는지를 보여줍니다</span>
+          </div>
+          <button type="button" class="filter-reset-btn" id="saSyncPanelToggle" onclick="toggleSaSyncPanel()">실행 이력 펼쳐보기 ▾</button>
+        </div>
+        <div class="sa-sync-freshness" id="saSyncFreshness"></div>
+        <div id="saSyncRuns" style="display:none; margin-top:12px;"></div>
+      </section>
 
       <div id="mktNaverSaEmpty" class="mkt-empty" style="display:none">
         아직 네이버 브랜드의 광고 데이터가 없어요.
@@ -2132,6 +2161,7 @@
   let saDetailTabState = 'keyword';
 
   function renderMarketingNaverSaView() {
+    renderSaSyncFreshness();
     const hasAnyData = allMarketingDailyRows.some((r) => r.channel && r.channel.startsWith('네이버'))
       || allMarketingRows.some((r) => r.channel && r.channel.startsWith('네이버'));
     if (!hasAnyData) {
@@ -2202,6 +2232,88 @@
     renderSaDashboard();
   }
 
+
+  // ==================== 동기화 상태 판 ====================
+  // 「지금 동기화」를 눌러도 화면이 안 변할 때, (1) 동기화가 실패한 건지 (2) 성공했는데 값이
+  // 원래 그대로인 건지 구분할 방법이 없었다. 실제로 일별 키워드 동기화가 네이버 API 429 로
+  // 2026-09-10 이후 계속 실패하고 있었는데 화면에는 아무 표시도 없었다.
+  const SA_SYNC_STATUS_URL = 'https://my-dashboard-three-fawn.vercel.app/api/naver-sync-status';
+
+  // 표마다 「언제까지 들어와 있으면 정상인지」가 다르다 — 채널별 광고비는 오늘치까지 들어오지만,
+  // 캠페인·키워드 일별 동기화는 구조상 어제치 하루만 처리한다(워크플로가 FROM=yesterday).
+  function saSyncFreshnessRows() {
+    const maxDateOf = (rows) => rows.reduce((m, r) => (r && r.date > m ? r.date : m), '');
+    const naverDaily = allMarketingDailyRows.filter((r) => r.channel && String(r.channel).startsWith('네이버'));
+    return [
+      { label: '광고비·매출 (채널별)', latest: maxDateOf(naverDaily), okLag: 0, note: '오늘치까지 들어옵니다' },
+      { label: '캠페인 성과 (일별)', latest: maxDateOf(allSaCampaignDailyRows), okLag: 1, note: '어제치까지가 정상입니다' },
+      { label: '키워드 성과 (일별)', latest: maxDateOf(allSaKeywordDailyRows), okLag: 1, note: '어제치까지가 정상입니다' },
+    ];
+  }
+  function renderSaSyncFreshness() {
+    const box = document.getElementById('saSyncFreshness');
+    if (!box) return;
+    const today = todayISO();
+    box.innerHTML = saSyncFreshnessRows().map((row) => {
+      const lag = row.latest ? daysBetween(row.latest, today) - 1 : null;
+      const stale = (lag === null) || (lag > row.okLag);
+      const lagText = lag === null ? '데이터 없음' : lag === 0 ? '오늘까지' : lag === 1 ? '어제까지' : lag + '일 밀림';
+      return `
+        <div class="sa-sync-chip${stale ? ' stale' : ''}">
+          <div class="sa-sync-chip-label">${escapeAttr(row.label)}</div>
+          <div class="sa-sync-chip-value">${escapeAttr(row.latest || '-')} · ${escapeAttr(lagText)}</div>
+          <div class="sa-sync-chip-note">${escapeAttr(stale ? '밀려 있어요 — 실행 이력을 확인하세요' : row.note)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  let saSyncRunsShown = false;
+  function toggleSaSyncPanel() {
+    saSyncRunsShown = !saSyncRunsShown;
+    document.getElementById('saSyncRuns').style.display = saSyncRunsShown ? '' : 'none';
+    document.getElementById('saSyncPanelToggle').textContent = saSyncRunsShown ? '실행 이력 접기 ▴' : '실행 이력 펼쳐보기 ▾';
+    if (saSyncRunsShown) loadSaSyncRuns();
+  }
+  function saRunClass(run) {
+    if (run.status !== 'completed') return 'running';
+    return run.conclusion === 'success' ? 'success' : run.conclusion === 'failure' ? 'failure' : 'other';
+  }
+  function saRunText(run) {
+    if (run.status !== 'completed') return '실행 중';
+    return run.conclusion === 'success' ? '성공' : run.conclusion === 'failure' ? '실패' : (run.conclusion || '알 수 없음');
+  }
+  function renderSaSyncRunsHtml(data) {
+    if (!data || !Array.isArray(data.workflows)) return '<div class="mkt-empty">실행 이력이 없어요.</div>';
+    const rows = data.workflows.map((w) => {
+      const name = escapeAttr(w.label || w.workflow);
+      if (w.error) return `<div class="sa-sync-run-row"><span class="sa-sync-run-name">${name}</span><span>읽기 실패: ${escapeAttr(w.error)}</span></div>`;
+      const runs = w.runs || [];
+      const last = runs[0];
+      if (!last) return `<div class="sa-sync-run-row"><span class="sa-sync-run-name">${name}</span><span>실행 기록 없음</span></div>`;
+      const dots = runs.map((r) => `<span class="sa-sync-dot ${saRunClass(r)}" title="${escapeAttr(formatUpdatedAt(r.createdAt) + ' ' + saRunText(r))}"></span>`).join('');
+      const meta = `${formatUpdatedAt(last.createdAt)} · ${saRunText(last)} · ${last.event === 'schedule' ? '자동' : '버튼'}`;
+      return `<div class="sa-sync-run-row"><span class="sa-sync-run-name">${name}</span><span>${dots}</span><span>${escapeAttr(meta)}</span><a href="${escapeAttr(last.url)}" target="_blank" rel="noopener">로그 보기</a></div>`;
+    }).join('');
+    return rows + '<div class="sa-filter-note">최근 5번 · 왼쪽이 최신 · 초록=성공, 빨강=실패, 주황=실행 중</div>';
+  }
+  function loadSaSyncRuns() {
+    const box = document.getElementById('saSyncRuns');
+    if (!box) return;
+    box.innerHTML = '<div class="mkt-empty">실행 이력을 불러오는 중...</div>';
+    fetch(SA_SYNC_STATUS_URL)
+      .then((r) => r.json())
+      .then((data) => { box.innerHTML = renderSaSyncRunsHtml(data); })
+      .catch((e) => {
+        box.innerHTML = '<div class="mkt-empty">실행 이력을 못 읽었어요 (' + escapeAttr(e.message)
+          + '). my-dashboard 에 api/naver-sync-status.js 가 배포돼 있는지 확인하세요.</div>';
+      });
+  }
+  // 버튼을 막 눌렀을 땐 아직 queued 라 결과를 알 수 없다 — 몇 번 더 들여다보며 갱신한다.
+  function watchSaSyncRuns() {
+    if (!saSyncRunsShown) toggleSaSyncPanel(); else loadSaSyncRuns();
+    [15000, 45000, 90000, 150000].forEach((ms) => setTimeout(() => { if (saSyncRunsShown) loadSaSyncRuns(); }, ms));
+  }
+
   // ---- "지금 동기화" 버튼: my-dashboard 프로젝트의 GitHub Actions 트리거 엔드포인트를
   // 호출한다(별도 Vercel 프로젝트라 절대경로). 실제 동기화는 GitHub Actions에서 평소처럼
   // 1~2분 걸려 완료되므로, 여기서는 요청만 보내고 기다리지 않는다.
@@ -2217,8 +2329,9 @@
       .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
       .then(({ ok, data }) => {
         status.textContent = (ok && data.triggered)
-          ? '동기화 요청 완료 · 1~2분 후 새로고침 해주세요'
+          ? '동기화 요청 완료 · 아래 「동기화 상태」에서 결과를 확인하세요'
           : '요청 실패: ' + (data && data.detail ? data.detail : (data && data.results ? data.results.filter((r) => !r.ok).map((r) => r.workflow).join(', ') + ' 확인 필요' : '알 수 없는 오류'));
+        if (ok && data.triggered) watchSaSyncRuns();
       })
       .catch((e) => { status.textContent = '요청 실패: ' + e.message; })
       .finally(() => {
