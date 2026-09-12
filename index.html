@@ -1172,14 +1172,14 @@
     async function worker() {
       while (nextPage < pages && !failed) {
         const page = nextPage++;
-        const { data, error } = await client
+        const { data, error } = await fetchPageWithRetry(() => client
           .from('sales_transactions')
           .select('*')
           .order('sale_date', { ascending: true })
           .order('id', { ascending: true })
-          .range(page * SALES_PAGE_SIZE, page * SALES_PAGE_SIZE + SALES_PAGE_SIZE - 1);
+          .range(page * SALES_PAGE_SIZE, page * SALES_PAGE_SIZE + SALES_PAGE_SIZE - 1));
         if (error) { failed = error; return; }
-        chunks[page] = data || [];
+        chunks[page] = data;
       }
     }
     await Promise.all(Array.from({ length: Math.min(SALES_PAGE_CONCURRENCY, pages) }, worker));
@@ -1274,6 +1274,20 @@
   let allSaCampaignDailyRows = [];
   // Supabase(PostgREST)는 한 번에 최대 1000행만 돌려주므로, 키워드 일별 데이터처럼
   // 1000행을 넘을 수 있는 테이블은 .range()로 끝까지 페이지네이션해서 가져와야 한다.
+  // 여러 장을 동시에 받으면 가끔 한 장이 일시적으로 실패한다. 그때 전부 버리면 표가 통째로
+  // 비어 버린다 — 2026-09-12 에 키워드 일별이 실제로 그렇게 비었다(DB엔 7,095행이 멀쩡히
+  // 있었는데 화면은 0행). 장별로 세 번까지 다시 시도하고, 그래도 안 되면 그때 포기한다.
+  async function fetchPageWithRetry(run, tries = 3) {
+    let lastError = null;
+    for (let i = 0; i < tries; i++) {
+      const { data, error } = await run();
+      if (!error) return { data: data || [] };
+      lastError = error;
+      await new Promise((r) => setTimeout(r, 300 * Math.pow(2, i)));
+    }
+    return { error: lastError };
+  }
+
   async function fetchAllRows(table, orderCol) {
     const PAGE = 1000;
     // loadData 와 같은 이유로, 개수를 먼저 세고 페이지를 동시에 받는다(순서대로 기다리지 않는다).
@@ -1286,10 +1300,10 @@
     async function worker() {
       while (nextPage < pages && !failed) {
         const page = nextPage++;
-        const { data, error } = await client.from(table).select('*').order(orderCol, { ascending: true })
-          .range(page * PAGE, page * PAGE + PAGE - 1);
-        if (error) { failed = true; return; }
-        chunks[page] = data || [];
+        const { data, error } = await fetchPageWithRetry(() => client.from(table).select('*')
+          .order(orderCol, { ascending: true }).range(page * PAGE, page * PAGE + PAGE - 1));
+        if (error) { failed = true; console.error(table + ' ' + page + '번째 장 로드 실패:', error.message); return; }
+        chunks[page] = data;
       }
     }
     await Promise.all(Array.from({ length: Math.min(8, pages) }, worker));
@@ -2293,8 +2307,10 @@
     const naverDaily = allMarketingDailyRows.filter((r) => r.channel && String(r.channel).startsWith('네이버'));
     return [
       { label: '광고비·매출 (채널별)', latest: maxDateOf(naverDaily), okLag: 0, note: '오늘치까지 들어옵니다' },
-      { label: '캠페인 성과 (일별)', latest: maxDateOf(allSaCampaignDailyRows), okLag: 1, note: '어제치까지가 정상입니다' },
-      { label: '키워드 성과 (일별)', latest: maxDateOf(allSaKeywordDailyRows), okLag: 1, note: '어제치까지가 정상입니다' },
+      // 스케줄로는 어제치까지만 들어오고, 오늘치는 「지금 동기화」를 눌러야 들어온다
+      // (버튼이 이 워크플로를 from=to=오늘 로 띄운다). 그래서 어제까지는 정상으로 본다.
+      { label: '캠페인 성과 (일별)', latest: maxDateOf(allSaCampaignDailyRows), okLag: 1, note: '오늘치는 「지금 동기화」로' },
+      { label: '키워드 성과 (일별)', latest: maxDateOf(allSaKeywordDailyRows), okLag: 1, note: '오늘치는 「지금 동기화」로' },
     ];
   }
   function renderSaSyncFreshness() {
