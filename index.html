@@ -923,12 +923,8 @@
     syncMarketingNavActive(view, brandChannel);
 
     if (view === 'marketing') {
+      // 매출 원장은 renderMarketingMonth 가 고른 달만 알아서 받아온다.
       loadMarketingData();
-      // 회사·브랜드 매출은 매출 원장에서 나온다 — 늦게 도착하므로 오면 그때 다시 그린다.
-      ensureSalesData().then(() => {
-        const sel = document.getElementById('mktMonthSelect');
-        if (sel && sel.value) renderMarketingMonth(sel.value);
-      });
     }
     if (view === 'marketing-brand') {
       currentMarketingBrand = brandChannel;
@@ -1144,11 +1140,6 @@
   // 「상품별 광고비ROI」 둘뿐이라, 첫 화면부터 미리 받지 않고 그 화면에 들어갈 때 한 번만 받는다.
   // 네이버SA·GFA 는 이 데이터를 안 쓰므로 그만큼 빨리 뜬다.
   let allRows = [];
-  let salesLoadPromise = null;
-  function ensureSalesData() {
-    if (!salesLoadPromise) salesLoadPromise = loadData();
-    return salesLoadPromise;
-  }
 
   // Supabase(PostgREST)가 한 번에 1,000행까지만 주기 때문에 나눠 받아야 하는데, 한 장씩
   // 순서대로 기다리면 8만 행 = 83번 왕복이라 9초 넘게 걸렸다(2026-09-12 측정: 8.9초).
@@ -1157,37 +1148,143 @@
   const SALES_PAGE_SIZE = 1000;
   const SALES_PAGE_CONCURRENCY = 8;
 
-  async function loadData() {
-    const { count, error: countError } = await client
-      .from('sales_transactions')
-      .select('*', { count: 'exact', head: true });
-    if (countError) {
-      console.error('sales_transactions 개수 조회 실패:', countError.message);
-      return;
+  // ---- 달 단위로 필요한 만큼만 받고, 지난 달은 브라우저에 저장해 둔다 ----
+  // 전부 받으면 8만 3천 행 17MB 라 6초가 걸린다. 화면이 실제로 보는 건 대개 한두 달이라
+  // 그 달만 받는다. 지난 달 매출은 더 안 바뀌므로 IndexedDB 에 넣어두고 다음부터 그걸 쓴다
+  // (이번 달은 계속 쌓이므로 저장하지 않고 늘 새로 받는다). localStorage 는 한 달치도 3MB가
+  // 넘어 5MB 한도에 걸려서 못 쓴다.
+  const SALES_IDB_NAME = 'adDashSales';
+  const SALES_IDB_STORE = 'monthRows';
+  const salesLoadedMonths = new Set();
+  const salesMonthInflight = {};
+  let salesFirstMonth = null;
+
+  function salesIdbOpen() {
+    return new Promise((resolve) => {
+      let req;
+      try { req = indexedDB.open(SALES_IDB_NAME, 1); } catch (e) { return resolve(null); }
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(SALES_IDB_STORE)) db.createObjectStore(SALES_IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+    });
+  }
+  async function salesIdbGet(month) {
+    const db = await salesIdbOpen();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      try {
+        const r = db.transaction(SALES_IDB_STORE).objectStore(SALES_IDB_STORE).get(month);
+        r.onsuccess = () => resolve(r.result || null);
+        r.onerror = () => resolve(null);
+      } catch (e) { resolve(null); }
+    });
+  }
+  async function salesIdbPut(month, rows) {
+    const db = await salesIdbOpen();
+    if (!db) return;
+    try {
+      db.transaction(SALES_IDB_STORE, 'readwrite').objectStore(SALES_IDB_STORE).put({ rows, savedAt: Date.now() }, month);
+    } catch (e) {}
+  }
+
+  function currentSalesMonth() { return todayISO().slice(0, 7); }
+  function prevMonthOf(month) {
+    const d = new Date(month + '-01T00:00:00Z');
+    d.setUTCMonth(d.getUTCMonth() - 1);
+    return dateStr(d).slice(0, 7);
+  }
+  function monthBounds(month) {
+    const d = new Date(month + '-01T00:00:00Z');
+    d.setUTCMonth(d.getUTCMonth() + 1);
+    d.setUTCDate(0);
+    return { first: month + '-01', last: dateStr(d) };
+  }
+  function monthsBetween(fromMonth, toMonth) {
+    const out = [];
+    const d = new Date(fromMonth + '-01T00:00:00Z');
+    const end = new Date(toMonth + '-01T00:00:00Z');
+    while (d <= end && out.length < 120) {
+      out.push(dateStr(d).slice(0, 7));
+      d.setUTCMonth(d.getUTCMonth() + 1);
     }
+    return out;
+  }
+  // 기간을 비워두면 "전체"라서 첫 매출이 언제부터인지 알아야 한다(한 번만 묻는다).
+  async function salesFirstMonthOf() {
+    if (salesFirstMonth) return salesFirstMonth;
+    const { data } = await client.from('sales_transactions').select('sale_date')
+      .order('sale_date', { ascending: true }).limit(1);
+    salesFirstMonth = (data && data[0] && data[0].sale_date) ? data[0].sale_date.slice(0, 7) : currentSalesMonth();
+    return salesFirstMonth;
+  }
+
+  async function fetchSalesMonth(month) {
+    const bounds = monthBounds(month);
+    const base = () => client.from('sales_transactions').select('*')
+      .gte('sale_date', bounds.first).lte('sale_date', bounds.last);
+    const { count, error: countError } = await client.from('sales_transactions')
+      .select('*', { count: 'exact', head: true })
+      .gte('sale_date', bounds.first).lte('sale_date', bounds.last);
+    if (countError) { console.error('sales_transactions ' + month + ' 개수 조회 실패:', countError.message); return null; }
     const pages = Math.ceil((count || 0) / SALES_PAGE_SIZE);
     const chunks = new Array(pages);
-    let nextPage = 0;
-    let failed = null;
+    let nextPage = 0, failed = null;
     async function worker() {
       while (nextPage < pages && !failed) {
         const page = nextPage++;
-        const { data, error } = await fetchPageWithRetry(() => client
-          .from('sales_transactions')
-          .select('*')
-          .order('sale_date', { ascending: true })
-          .order('id', { ascending: true })
+        const { data, error } = await fetchPageWithRetry(() => base()
+          .order('sale_date', { ascending: true }).order('id', { ascending: true })
           .range(page * SALES_PAGE_SIZE, page * SALES_PAGE_SIZE + SALES_PAGE_SIZE - 1));
         if (error) { failed = error; return; }
         chunks[page] = data;
       }
     }
     await Promise.all(Array.from({ length: Math.min(SALES_PAGE_CONCURRENCY, pages) }, worker));
-    if (failed) {
-      console.error('sales_transactions 로드 실패:', failed.message);
-      return;
+    if (failed) { console.error('sales_transactions ' + month + ' 로드 실패:', failed.message); return null; }
+    return chunks.flat();
+  }
+
+  // 필요한 달들을 확보한다. 이미 가진 달은 건너뛰고, 같은 달을 동시에 두 번 받지 않는다.
+  async function ensureSalesMonths(months) {
+    const want = Array.from(new Set((months || []).filter(Boolean)));
+    const added = await Promise.all(want.map((month) => {
+      if (salesLoadedMonths.has(month)) return null;
+      if (!salesMonthInflight[month]) {
+        salesMonthInflight[month] = (async () => {
+          const isCurrent = month === currentSalesMonth();
+          let rows = null;
+          if (!isCurrent) {
+            const hit = await salesIdbGet(month);
+            if (hit && Array.isArray(hit.rows)) rows = hit.rows;
+          }
+          if (!rows) {
+            rows = await fetchSalesMonth(month);
+            if (rows && !isCurrent) salesIdbPut(month, rows);
+          }
+          return rows;
+        })().finally(() => { delete salesMonthInflight[month]; });
+      }
+      return salesMonthInflight[month].then((rows) => {
+        if (rows && !salesLoadedMonths.has(month)) { salesLoadedMonths.add(month); return rows; }
+        return null;
+      });
+    }));
+    const fresh = added.filter(Boolean).flat();
+    if (fresh.length) {
+      allRows = allRows.concat(fresh)
+        .sort((a, b) => (a.sale_date === b.sale_date ? (Number(a.id) - Number(b.id)) : (a.sale_date < b.sale_date ? -1 : 1)));
     }
-    allRows = chunks.flat();
+  }
+
+  // 화면이 보는 기간(비어 있으면 전체)에 해당하는 달들을 확보한다.
+  async function ensureSalesForRange(from, to) {
+    const firstMonth = (from && from.slice(0, 7)) || (await salesFirstMonthOf());
+    const lastMonth = (to && to.slice(0, 7)) || currentSalesMonth();
+    await ensureSalesMonths(monthsBetween(firstMonth, lastMonth));
   }
 
   const AGGREGATE_PLACEHOLDER_SUFFIX = ' (일별 합계·미분류)';
@@ -1355,6 +1452,16 @@
   function renderMarketingMonth(monthStr) {
     const rows = allMarketingRows.filter(r => r.month === monthStr);
     renderMarketing(rows, monthStr);
+    // 매출 원장은 달 단위로만 받아둔다. 고른 달(과 전월 대비에 쓰는 전달)이 아직 없으면
+    // 그때 받아와서 다시 그린다 — 안 그러면 옛 달을 고를 때 회사 매출이 0 으로 보인다.
+    if (!monthStr) return;
+    const need = [monthStr, prevMonthOf(monthStr)].filter((m) => !salesLoadedMonths.has(m));
+    if (!need.length) return;
+    ensureSalesMonths(need).then(() => {
+      const sel = document.getElementById('mktMonthSelect');
+      if (sel && sel.value !== monthStr) return; // 그 사이 다른 달로 옮겼으면 건드리지 않는다
+      renderMarketing(allMarketingRows.filter(r => r.month === monthStr), monthStr);
+    });
   }
 
   function renderMarketing(rows, monthStr) {
@@ -1388,7 +1495,7 @@
     // 아직 안 온 건지 구분되게 자막에 밝혀 둔다(오면 renderMarketingMonth 가 다시 그린다).
     document.getElementById('mktSubtitle').textContent =
       (monthStr ? monthStr + ' · ' : '') + '전 채널 통합 · 채널 ' + rows.length.toLocaleString('ko-KR') + '개'
-      + (allRows.length ? '' : ' · 매출 불러오는 중...');
+      + (salesLoadedMonths.has(monthStr) ? '' : ' · 매출 불러오는 중...');
 
     document.getElementById('mktCards').innerHTML = `
       <div class="kpi-card">
@@ -3785,7 +3892,22 @@
   }
 
   function initProductAdRatioView() {
-    Promise.all([loadProductAdSpendData(), loadProductCostData(), loadVendorFeeRates(), ensureSalesData()]).then(() => {
+    const paFrom0 = document.getElementById('paDateFrom');
+    const paTo0 = document.getElementById('paDateTo');
+    // 기간을 비워두면 "전체"라 매출 원장을 처음부터 다 받아야 한다(8만 3천 행, 6초).
+    // 기본을 최근 한 달로 두고, 넓히면 그 달들을 그때 더 받는다.
+    // ⚠ 아래 Promise.all 이 이 값을 읽으므로 반드시 그 전에 채워야 한다.
+    if (paFrom0 && !paFrom0.value && paTo0 && !paTo0.value) {
+      const today = todayISO();
+      const d = new Date(today + 'T00:00:00Z');
+      d.setUTCMonth(d.getUTCMonth() - 1);
+      paFrom0.value = dateStr(d);
+      paTo0.value = today;
+    }
+    Promise.all([
+      loadProductAdSpendData(), loadProductCostData(), loadVendorFeeRates(),
+      ensureSalesForRange(paFrom0 && paFrom0.value, paTo0 && paTo0.value)
+    ]).then(() => {
       renderProductAdRatioResult();
       renderPaCompareChips();
       renderPaCompareResult();
@@ -3799,6 +3921,7 @@
     const fromInput = document.getElementById('paDateFrom');
     const toInput = document.getElementById('paDateTo');
     const resetBtn = document.getElementById('paDateReset');
+
 
     function paProductLabel(product) {
       return product || '';
@@ -3863,13 +3986,22 @@
       if (!e.target.closest('#paProductSelectWrap')) closePaDropdown();
     });
 
-    fromInput.addEventListener('change', () => { renderProductAdRatioResult(); renderPaCompareResult(); });
-    toInput.addEventListener('change', () => { renderProductAdRatioResult(); renderPaCompareResult(); });
-    resetBtn.addEventListener('click', () => {
-      fromInput.value = '';
-      toInput.value = '';
+    // 기간을 넓히면 아직 안 받은 달이 생긴다 — 먼저 받아온 다음 다시 그린다.
+    function paRerenderForRange() {
       renderProductAdRatioResult();
       renderPaCompareResult();
+      ensureSalesForRange(fromInput.value, toInput.value).then(() => {
+        renderProductAdRatioResult();
+        renderPaCompareResult();
+      });
+    }
+    fromInput.addEventListener('change', paRerenderForRange);
+    toInput.addEventListener('change', paRerenderForRange);
+    resetBtn.addEventListener('click', () => {
+      // 「기간 초기화」 = 전체 기간. 이때는 매출 원장을 처음부터 다 받는다(몇 초 걸린다).
+      fromInput.value = '';
+      toInput.value = '';
+      paRerenderForRange();
     });
 
     const compareInput = document.getElementById('paCompareSelectInput');
@@ -4126,7 +4258,7 @@
 
   // ---- 매출 원장(sales_transactions)은 여기서 미리 받지 않습니다 ----
   // 8만 행이라 6~10초가 걸리는데, 쓰는 화면은 「마케팅」 월간과 「상품별 광고비ROI」 둘뿐입니다.
-  // 그 화면에 들어갈 때 ensureSalesData() 가 한 번만 받아옵니다.
+  // 그 화면에 들어갈 때 필요한 달만 ensureSalesMonths()/ensureSalesForRange() 로 받아옵니다.
 </script>
 </body>
 </html>
