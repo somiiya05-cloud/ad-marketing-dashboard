@@ -247,6 +247,8 @@
   /* 고정바 안에 들어간 핵심 지표 패널 — 바깥 여백을 줄여 고정바가 덜 두꺼워지게 한다. */
   .sa-kpi-panel { margin: 10px 0 0; padding: 12px 16px; }
   .sa-kpi-panel .panel-head { margin-bottom: 10px; align-items: flex-start; }
+  .sa-kpi-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .sa-kpi-type-tabs .ad-type-filter-btn { font-size: 12px; padding: 4px 10px; }
   /* 브랜드가 늘어나면 좁은 화면에서 고정바가 너무 두꺼워진다 — 줄바꿈 대신 가로로 민다. */
   @media (max-width: 900px) {
     .sa-brand-tab-row { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
@@ -612,9 +614,17 @@
               <h2 id="saBrandDetailTitle">전체 브랜드 핵심 지표</h2>
               <span class="panel-note" id="saBrandDetailNote"></span>
             </div>
-            <button type="button" class="filter-reset-btn" id="saKpiToggle" onclick="toggleSaKpi()">접기 ▴</button>
+            <div class="sa-kpi-head-right">
+              <div class="filter-group sa-kpi-type-tabs" id="saKpiTypeTabs">
+                <button type="button" class="ad-type-filter-btn active" data-sakpitype="all" onclick="setSaKpiType('all')">합산</button>
+                <button type="button" class="ad-type-filter-btn" data-sakpitype="SA" onclick="setSaKpiType('SA')">SA</button>
+                <button type="button" class="ad-type-filter-btn" data-sakpitype="파워링크" onclick="setSaKpiType('파워링크')">파워링크</button>
+              </div>
+              <button type="button" class="filter-reset-btn" id="saKpiToggle" onclick="toggleSaKpi()">접기 ▴</button>
+            </div>
           </div>
           <div class="kpi-row kpi-row-compact" id="saBrandDetailCards"></div>
+          <div class="sa-filter-note" id="saKpiTypeNote" style="display:none;"></div>
         </section>
         <div class="sa-sync-banner" id="saSyncBanner" style="display:none;"></div>
       </div>
@@ -2547,16 +2557,60 @@
     applySaKpiState();
   }
 
+  // ---- 핵심 지표를 SA / 파워링크로 나눠 보기 ----
+  // 핵심 지표가 쓰는 ad_performance_daily 에는 광고 유형 칸이 없다. 대신 캠페인 일별 표
+  // (naver_campaign_performance_daily)의 캠페인 이름으로 가른다 — 「PPP」가 들어가면 파워링크,
+  // 아니면 SA(쇼핑검색·브랜드검색 등). 2026-09-12 에 ad_performance_campaigns 의 ad_type 이
+  // 붙어 있는 검색광고 캠페인 71건 전부와 이 규칙이 일치하는 걸 확인했고,
+  // 하루치 합(파워링크 298,488 + SA 123,474 = 421,962)도 ad_performance_daily 와 같았다.
+  // ⚠ 캠페인 일별 표는 어제치까지만 들어오므로 「오늘」을 고르면 나눌 수 없다 — 그땐 안내만 한다.
+  let saKpiType = 'all';
+  function isPowerLinkCampaign(campaign) {
+    return String(campaign || '').toUpperCase().includes('PPP');
+  }
+  function setSaKpiType(type) {
+    saKpiType = type;
+    document.querySelectorAll('#saKpiTypeTabs .ad-type-filter-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.sakpitype === type);
+    });
+    renderSaDashboard();
+  }
+  // 고른 유형으로 캠페인 일별 줄을 걸러 합친다.
+  function saTypedRows(channels, from, to) {
+    return allSaCampaignDailyRows.filter((r) =>
+      channels.includes(r.channel) && r.date >= from && r.date <= to
+      && (saKpiType === '파워링크' ? isPowerLinkCampaign(r.campaign) : !isPowerLinkCampaign(r.campaign)));
+  }
+
   function renderSaBrandDetail(from, to, cmp) {
     const channels = saFilter.brand ? [saFilter.brand] : SA_CARD_BRANDS.map((b) => b.channel);
+    const allChannels = SA_CARD_BRANDS.map((b) => b.channel);
     const label = saFilter.brand ? naverSaBrandName(saFilter.brand) : '전체 브랜드';
     document.getElementById('saBrandDetailTitle').textContent = `${label} 핵심 지표`;
-    document.getElementById('saBrandDetailNote').textContent = periodLabel(saFilter.period, from, to) + ' · SA+파워링크 합산';
 
-    const cur = sumRows(saDailyRowsForBrands(channels, from, to));
-    const cmpAgg = sumRows(saDailyRowsForBrands(channels, cmp.from, cmp.to));
-    const totalAllBrands = sumRows(saDailyRowsForBrands(SA_CARD_BRANDS.map((b) => b.channel), from, to));
-    const cmpTotalAllBrands = sumRows(saDailyRowsForBrands(SA_CARD_BRANDS.map((b) => b.channel), cmp.from, cmp.to));
+    // 「오늘」처럼 캠페인 일별 데이터가 아직 없는 기간에는 나눌 수 없다.
+    const typeReady = saKpiType === 'all'
+      || allSaCampaignDailyRows.some((r) => r.date >= from && r.date <= to);
+    const useType = saKpiType !== 'all' && typeReady;
+    const typeNote = document.getElementById('saKpiTypeNote');
+    if (saKpiType !== 'all' && !typeReady) {
+      typeNote.style.display = '';
+      typeNote.textContent = `이 기간은 캠페인 일별 데이터가 아직 없어서 ${saKpiType} 만 따로 볼 수 없어요 — 합산으로 보여줍니다.`;
+    } else if (useType) {
+      typeNote.style.display = '';
+      typeNote.textContent = `${saKpiType} 만 · 캠페인 이름으로 갈랐습니다(PPP = 파워링크, 나머지 = SA)`;
+    } else {
+      typeNote.style.display = 'none';
+    }
+
+    document.getElementById('saBrandDetailNote').textContent = periodLabel(saFilter.period, from, to)
+      + (useType ? ` · ${saKpiType}` : ' · SA+파워링크 합산');
+
+    const pick = (chs, f, t) => (useType ? saTypedRows(chs, f, t) : saDailyRowsForBrands(chs, f, t));
+    const cur = sumRows(pick(channels, from, to));
+    const cmpAgg = sumRows(pick(channels, cmp.from, cmp.to));
+    const totalAllBrands = sumRows(pick(allChannels, from, to));
+    const cmpTotalAllBrands = sumRows(pick(allChannels, cmp.from, cmp.to));
     const roas = roasOf(cur), cmpRoas = roasOf(cmpAgg);
     const spendShare = totalAllBrands.spend > 0 ? (cur.spend / totalAllBrands.spend * 100) : 0;
     const cmpSpendShare = cmpTotalAllBrands.spend > 0 ? (cmpAgg.spend / cmpTotalAllBrands.spend * 100) : 0;
