@@ -272,6 +272,23 @@
   .sa-sync-dot.other { background: #94a3b8; }
   .sa-sync-run-note { font-size: 11px; color: #94a3b8; }
 
+  /* ---- 「지금 동기화」 진행/완료 알림 ---- */
+  .sa-sync-banner {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 10px; padding: 14px 18px; border-radius: 12px;
+    font-size: 17px; font-weight: 800; line-height: 1.5;
+  }
+  .sa-sync-banner .sa-sync-banner-sub { font-size: 12px; font-weight: 600; opacity: .8; display: block; margin-top: 2px; }
+  .sa-sync-banner .sa-sync-banner-mark { font-size: 22px; line-height: 1; }
+  .sa-sync-banner.running { background: rgba(245,158,11,.12); color: #92400e; border: 1px solid rgba(245,158,11,.35); }
+  .sa-sync-banner.done { background: rgba(22,163,74,.12); color: #15803d; border: 1px solid rgba(22,163,74,.40); }
+  .sa-sync-banner.fail { background: rgba(220,38,38,.10); color: #b91c1c; border: 1px solid rgba(220,38,38,.40); }
+  .sa-sync-banner-close {
+    margin-left: auto; cursor: pointer; font-size: 13px; font-weight: 700;
+    background: none; border: none; color: inherit; opacity: .65;
+  }
+  .sa-sync-banner-close:hover { opacity: 1; }
+
   /* ---- 브랜드 대형 카드 ---- */
   .brand-card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 4px; }
   .brand-card {
@@ -590,6 +607,7 @@
           <span class="sa-filter-meta-item" id="saManualSyncStatus"></span>
         </div>
         <div class="sa-today-notice" id="saTodayNotice" style="display:none;"></div>
+        <div class="sa-sync-banner" id="saSyncBanner" style="display:none;"></div>
       </div>
 
       <section class="panel" id="saSyncPanel">
@@ -2363,7 +2381,7 @@
       todayNotice.style.display = '';
       todayNotice.innerHTML = '오늘은 <b>아직 진행 중</b>이라 마지막 동기화 시점까지의 수치입니다'
         + (lastUpdated ? ` (${formatUpdatedAt(lastUpdated)} 기준)` : '')
-        + ' · 하루가 안 끝나서 「전일 대비」가 낮게 나오는 건 정상입니다 · 지금 값으로 당기려면 「지금 동기화」를 누르고 1~2분 뒤 새로고침하세요.';
+        + ' · 하루가 안 끝나서 「전일 대비」가 낮게 나오는 건 정상입니다 · 지금 값으로 당기려면 「지금 동기화」를 누르세요(끝나면 알아서 다시 불러옵니다).';
     } else {
       todayNotice.style.display = 'none';
     }
@@ -2514,10 +2532,89 @@
       });
   }
   // 버튼을 막 눌렀을 땐 아직 queued 라 결과를 알 수 없다 — 몇 번 더 들여다보며 갱신한다.
-  function watchSaSyncRuns() {
+  // ---- 「지금 동기화」 진행/완료 알림 ----
+  // 예전엔 "요청 완료"만 작은 글씨로 뜨고, 진짜로 끝났는지는 이력을 눈으로 봐야 했다.
+  // 이제 끝날 때까지 지켜보다가 크게 알려주고, 끝나면 데이터를 알아서 다시 읽는다.
+  const SA_SYNC_POLL_MS = 10000;
+  const SA_SYNC_DEADLINE_MS = 6 * 60 * 1000;
+  let saSyncWatchToken = 0;
+
+  function setSaSyncBanner(state, title, sub) {
+    const el = document.getElementById('saSyncBanner');
+    if (!el) return;
+    el.className = 'sa-sync-banner ' + state;
+    el.style.display = '';
+    const mark = state === 'done' ? '✅' : state === 'fail' ? '⚠️' : '⏳';
+    el.innerHTML = `<span class="sa-sync-banner-mark">${mark}</span>`
+      + `<span>${title}${sub ? `<span class="sa-sync-banner-sub">${sub}</span>` : ''}</span>`
+      + `<button type="button" class="sa-sync-banner-close" onclick="hideSaSyncBanner()">닫기</button>`;
+  }
+  function hideSaSyncBanner() {
+    const el = document.getElementById('saSyncBanner');
+    if (el) el.style.display = 'none';
+  }
+  function fmtElapsed(ms) {
+    const sec = Math.max(0, Math.round(ms / 1000));
+    return Math.floor(sec / 60) + '분 ' + String(sec % 60).padStart(2, '0') + '초';
+  }
+
+  // 동기화가 끝났으면 화면 데이터를 다시 읽는다(사람이 새로고침하지 않아도 되게).
+  async function reloadSaData() {
+    await Promise.all([
+      loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData(),
+      loadMarketingDailyData(), loadSaDetailDailyData()
+    ]);
+    renderMarketingNaverSaView();
+  }
+
+  // 버튼이 띄운 워크플로들이 다 끝날 때까지 지켜본다.
+  // 이번에 띄운 것만 세도록, 누른 시각 이후에 생긴 실행만 본다.
+  async function watchSaSyncRuns() {
+    const token = ++saSyncWatchToken;
+    const startedAt = Date.now();
     if (!saSyncRunsShown) toggleSaSyncPanel();
-    else loadSaSyncRuns(true);
-    [15000, 45000, 90000, 150000].forEach((ms) => setTimeout(() => { if (saSyncRunsShown) loadSaSyncRuns(true); }, ms));
+    setSaSyncBanner('running', '동기화 중...', '보통 1분 안팎 걸려요');
+
+    while (token === saSyncWatchToken && Date.now() - startedAt < SA_SYNC_DEADLINE_MS) {
+      await new Promise((r) => setTimeout(r, SA_SYNC_POLL_MS));
+      if (token !== saSyncWatchToken) return;
+
+      const data = await fetchSaSyncRuns(true).catch(() => null);
+      if (token !== saSyncWatchToken) return;
+      if (!data || !Array.isArray(data.workflows)) continue;
+
+      const box = document.getElementById('saSyncRuns');
+      if (box && saSyncRunsShown) box.innerHTML = renderSaSyncRunsHtml(data);
+
+      // 버튼이 띄우는 워크플로만 대상. 디스패치가 반영되는 데 몇 초 걸리므로 1분 여유를 둔다.
+      const targets = data.workflows.filter((w) => w.byButton !== false && !w.error);
+      const mine = targets.map((w) => (w.runs || [])
+        .find((r) => new Date(r.createdAt).getTime() >= startedAt - 60000));
+      if (!mine.length || !mine.every(Boolean)) {
+        setSaSyncBanner('running', '동기화 중...', `시작을 기다리는 중 · ${fmtElapsed(Date.now() - startedAt)} 경과`);
+        continue;
+      }
+      if (!mine.every((r) => r.status === 'completed')) {
+        setSaSyncBanner('running', '동기화 중...', `${fmtElapsed(Date.now() - startedAt)} 경과`);
+        continue;
+      }
+
+      const failed = mine.filter((r) => r.conclusion !== 'success');
+      if (failed.length) {
+        setSaSyncBanner('fail', '동기화 실패',
+          `${failed.length}개가 실패했어요 · 아래 「동기화 상태」의 「로그 보기」로 확인하세요`);
+        return;
+      }
+      setSaSyncBanner('done', '동기화 완료!', `${fmtElapsed(Date.now() - startedAt)} 걸렸어요 · 화면을 새로 불러오는 중...`);
+      await reloadSaData();
+      if (token !== saSyncWatchToken) return;
+      setSaSyncBanner('done', '동기화 완료!', '최신 데이터로 바꿔놨어요');
+      return;
+    }
+    if (token === saSyncWatchToken) {
+      setSaSyncBanner('fail', '아직 안 끝났어요',
+        '6분이 지나도 안 끝나서 지켜보기를 멈췄습니다 · 아래 「동기화 상태」에서 직접 확인하세요');
+    }
   }
 
   // ---- "지금 동기화" 버튼: my-dashboard 프로젝트의 GitHub Actions 트리거 엔드포인트를
@@ -2534,12 +2631,17 @@
     fetch(SA_TRIGGER_SYNC_URL, { method: 'POST' })
       .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
       .then(({ ok, data }) => {
-        status.textContent = (ok && data.triggered)
-          ? '동기화 요청 완료 · 아래 「동기화 상태」에서 결과를 확인하세요'
-          : '요청 실패: ' + (data && data.detail ? data.detail : (data && data.results ? data.results.filter((r) => !r.ok).map((r) => r.workflow).join(', ') + ' 확인 필요' : '알 수 없는 오류'));
-        if (ok && data.triggered) watchSaSyncRuns();
+        if (ok && data.triggered) {
+          status.textContent = '';
+          watchSaSyncRuns();   // 끝날 때까지 지켜보다가 배너로 크게 알려준다
+        } else {
+          const detail = (data && data.detail) ? data.detail
+            : (data && data.results ? data.results.filter((r) => !r.ok).map((r) => r.workflow).join(', ') + ' 확인 필요' : '알 수 없는 오류');
+          status.textContent = '';
+          setSaSyncBanner('fail', '동기화 요청 실패', escapeAttr(detail));
+        }
       })
-      .catch((e) => { status.textContent = '요청 실패: ' + e.message; })
+      .catch((e) => { status.textContent = ''; setSaSyncBanner('fail', '동기화 요청 실패', escapeAttr(e.message)); })
       .finally(() => {
         saManualSyncCooldownUntil = Date.now() + 60000;
         setTimeout(() => { btn.disabled = false; }, 60000);
