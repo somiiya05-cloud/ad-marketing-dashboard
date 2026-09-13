@@ -258,6 +258,15 @@
   .sa-filter-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: #64748b; }
   .sa-filter-meta-item { display: inline-flex; align-items: center; gap: 4px; }
   .sa-filter-note { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  /* 상세 성과 제목·탭도 위 고정바 바로 아래에 붙는다(2026-09-13 요청). 붙는 높이는 고정바 높이를 따라가야 해서
+     --sa-filter-bar-h 를 스크립트가 채운다(핵심 지표를 접고 펴거나 동기화 배너가 뜨면 고정바 높이가 바뀐다).
+     패널 안에서만 붙으므로 상세 성과를 지나 내려가면 같이 풀린다. 패널 여백만큼 음수 여백으로 폭을 채운다. */
+  .sa-detail-sticky {
+    position: sticky; top: var(--sa-filter-bar-h, 0px); z-index: 20; background: #ffffff;
+    margin: -18px -20px 14px; padding: 16px 20px 12px; border-radius: 14px 14px 0 0;
+    border-bottom: 1px solid rgba(15,23,42,.06);
+  }
+  .sa-detail-sticky .panel-head { margin-bottom: 10px; }
   /* ---- 키워드 표가 못 보여주는 전환매출이 어디서 났는지 ---- */
   .sa-revenue-gap {
     margin: 10px 0 4px; padding: 11px 14px; border-radius: 10px;
@@ -659,16 +668,18 @@
 
       <div id="mktNaverSaContent">
         <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>상세 성과</h2>
-              <span class="panel-note" id="saDetailNote">전 브랜드 · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산</span>
+          <div class="sa-detail-sticky">
+            <div class="panel-head">
+              <div>
+                <h2>상세 성과</h2>
+                <span class="panel-note" id="saDetailNote">전 브랜드 · 캠페인 성과는 SA만, 키워드·낭비 키워드는 SA+파워링크 합산</span>
+              </div>
             </div>
-          </div>
-          <div class="filter-group" id="saDetailTabs" style="margin-bottom:14px;">
-            <button type="button" class="ad-type-filter-btn" data-satab="campaign" onclick="setSaDetailTab('campaign')">캠페인 성과</button>
-            <button type="button" class="ad-type-filter-btn active" data-satab="keyword" onclick="setSaDetailTab('keyword')">키워드 성과</button>
-            <button type="button" class="ad-type-filter-btn" data-satab="waste" onclick="setSaDetailTab('waste')">낭비 키워드</button>
+            <div class="filter-group" id="saDetailTabs">
+              <button type="button" class="ad-type-filter-btn" data-satab="campaign" onclick="setSaDetailTab('campaign')">캠페인 성과</button>
+              <button type="button" class="ad-type-filter-btn active" data-satab="keyword" onclick="setSaDetailTab('keyword')">키워드 성과</button>
+              <button type="button" class="ad-type-filter-btn" data-satab="waste" onclick="setSaDetailTab('waste')">낭비 키워드</button>
+            </div>
           </div>
 
           <div id="saDetailPanelCampaign" style="display:none;">
@@ -2421,6 +2432,7 @@
     // 진단의 「낭비 광고비 발생」 항목이 naverSaKeywordAllRows 를 읽으므로, 그 배열을 채우는
     // renderSaDetailRange 를 먼저 돌린다 — 안 그러면 직전에 보던 기간의 키워드가 그대로 섞인다.
     renderSaDetailRange(from, to);
+    updateSaFilterBarHeight();
   }
 
   // 브랜드별 핵심 지표를 탭으로 전환("전체" + 브랜드별) — 탭을 누르면 바로 아래 kpi 카드가 그 브랜드 기준으로 바뀐다.
@@ -2483,10 +2495,12 @@
     el.innerHTML = `<span class="sa-sync-banner-mark">${mark}</span>`
       + `<span>${title}${sub ? `<span class="sa-sync-banner-sub">${sub}</span>` : ''}</span>`
       + `<button type="button" class="sa-sync-banner-close" onclick="hideSaSyncBanner()">닫기</button>`;
+    updateSaFilterBarHeight();
   }
   function hideSaSyncBanner() {
     const el = document.getElementById('saSyncBanner');
     if (el) el.style.display = 'none';
+    updateSaFilterBarHeight();
   }
   function fmtElapsed(ms) {
     const sec = Math.max(0, Math.round(ms / 1000));
@@ -2586,12 +2600,36 @@
   let saKpiShown = (() => {
     try { return localStorage.getItem('saKpiShown') !== '0'; } catch (e) { return true; }
   })();
+  // 상세 성과 제목·탭(.sa-detail-sticky)이 붙을 높이 = 네이버SA 고정바의 지금 높이.
+  // 핵심 지표 접기/펴기 · 동기화 배너 · 화면 다시 그리기 · 창 크기에 따라 바뀐다. 크기 감시(ResizeObserver)만 두면
+  // 창이 가려져 있을 때 콜백이 안 돌아 처음 잰 값에 멈춘다(2026-09-13 확인: 고정바 314px 인데 160px 로 남아
+  // 상세 성과 탭이 고정바 뒤에 가려짐) — 그래서 높이를 바꾸는 함수들이 끝날 때마다 직접 부른다.
+  function updateSaFilterBarHeight() {
+    const tabs = document.getElementById('saPeriodTabs');
+    const bar = tabs && tabs.closest('.sa-filter-bar');
+    if (!bar || !bar.offsetHeight) return;          // 네이버SA 화면이 숨겨져 있으면 0 — 그땐 건드리지 않는다
+    document.documentElement.style.setProperty('--sa-filter-bar-h', bar.offsetHeight + 'px');
+  }
+  (function watchSaFilterBarHeight() {
+    const start = () => {
+      const tabs = document.getElementById('saPeriodTabs');
+      const bar = tabs && tabs.closest('.sa-filter-bar');
+      if (!bar) return;
+      updateSaFilterBarHeight();
+      if (window.ResizeObserver) new ResizeObserver(updateSaFilterBarHeight).observe(bar);
+      window.addEventListener('resize', updateSaFilterBarHeight);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
+  })();
+
   function applySaKpiState() {
     const cards = document.getElementById('saBrandDetailCards');
     const btn = document.getElementById('saKpiToggle');
     if (!cards || !btn) return;
     cards.style.display = saKpiShown ? '' : 'none';
     btn.textContent = saKpiShown ? '접기 ▴' : '펴기 ▾';
+    updateSaFilterBarHeight();
   }
   function toggleSaKpi() {
     saKpiShown = !saKpiShown;
