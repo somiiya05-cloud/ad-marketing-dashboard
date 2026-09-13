@@ -3216,12 +3216,49 @@
     const factor = action === 'keep' ? 1 : Math.min(1 + SA_BID_MAX_STEP, Math.max(1 - SA_BID_MAX_STEP, ratio));
     // 10원 단위로 맞출 때 지금 입찰가 쪽으로 자른다 — 반올림하면 330원 × 0.8 = 264 → 260원(−21%)처럼 한도를 넘는다.
     const stepped = factor < 1 ? Math.ceil(bid * factor / 10) * 10 : Math.floor(bid * factor / 10) * 10;
-    const recBid = bid ? Math.max(NAVER_MIN_BID, stepped) : null;
+    let recBid = bid ? Math.max(NAVER_MIN_BID, stepped) : null;
+    let recNote = null;
+
+    // 올려도 예상 순위가 안 오르면 클릭비용만 더 나간다 — 2026-09-13 벽지얼룩제거: 710 → 850원(+20%)이어도
+    // 모바일 3위 · PC 3위 그대로였다. 순위별 예상가가 있으면 「한 단계라도 오르는 가장 싼 값」으로 맞추고,
+    // 한도(+20%) 안에서 안 오르면 올리지 않는다. 고가 1위(쿠팡 등) 자리로 오르는 건 치지 않는다.
+    const est = saBidEstimateByKeyword.get(keyword);
+    if (action === 'up' && bid && recBid > bid && est) {
+      const now = saExpectedRankLine(est, bid);
+      const step = saNextRankStep(est, bid);
+      if (step && step.price <= recBid) {
+        recBid = step.price;
+        recNote = `${saDeviceLabel(step.device)} ${step.rank}위로`;
+        why += ` · 예상 순위 기준으로 ${saDeviceLabel(step.device)} ${step.rank}위에 드는 최저가 ${won(step.price)}까지만 올려요(더 올려도 같은 순위)`;
+      } else {
+        why += step
+          ? ` · 한도(+${SA_BID_MAX_STEP * 100}%, ${won(recBid)})까지 올려도 예상 순위가 그대로(${now})라 올리지 않아요 — 다음 순위 ${saDeviceLabel(step.device)} ${step.rank}위는 ${won(step.price)}(+${Math.round((step.price - bid) / bid * 100)}%)`
+          : ` · 더 올라갈 순위가 고가 1위(쿠팡 등)뿐이라 올리지 않아요(지금 ${now})`;
+        action = 'keep';
+        recBid = bid;
+      }
+    }
+
     const change = bid && recBid ? (recBid - bid) / bid : factor - 1;
     const label = { down: '내림', up: '올림', keep: '유지' }[action];
     if (action === 'down' && bid && recBid === bid) why += ` · 이미 최소 입찰가(${NAVER_MIN_BID}원)라 더 내릴 수 없어요 — 계속 부진하면 끄는 걸 검토하세요`;
     if (group) why += ' · ⚠ 광고그룹 입찰가를 따르는 키워드 — 이 키워드만 바꾸려면 키워드 입찰가를 따로 지정하세요';
-    return { ...base, action, label, why, recBid, change };
+    return { ...base, action, label, why, recBid, recNote, change };
+  }
+
+  // 지금 입찰가에서 한 단계라도 순위가 오르는 가장 싼 값 { device, rank, price }. 기기마다 한 단계 위 가격을 보고
+  // 그중 싼 쪽. 이미 1위인 기기와, 한 단계 위가 고가 1위(쿠팡 등)인 기기는 뺀다. 오를 데가 없으면 null.
+  function saNextRankStep(est, bid) {
+    const steps = ['MOBILE', 'PC'].map((d) => {
+      const ladder = est[d];
+      const now = saExpectedRank(ladder, bid);
+      if (now == null || now <= 1) return null;
+      const rank = Math.min(now, 6) - 1;
+      if (rank === 1 && saIsTopOutlier(ladder)) return null;
+      if (!(ladder[rank - 1] > 0)) return null;
+      return { device: d, rank, price: Math.max(NAVER_MIN_BID, Math.ceil(ladder[rank - 1] / 10) * 10) };
+    }).filter(Boolean);
+    return steps.length ? steps.reduce((a, b) => (b.price < a.price ? b : a)) : null;
   }
 
   // 두 기기의 목표 가격이 이만큼 이상 차이 나면 싼 쪽 기기만 목표에 올리는 값을 추천한다.
