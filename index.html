@@ -380,6 +380,16 @@
   .sa-bid-tag.up { background: rgba(22,163,74,.12); color: #15803d; }
   .sa-bid-tag.keep { background: rgba(15,23,42,.06); color: #475569; }
   .sa-bid-tag.hold { background: rgba(15,23,42,.04); color: #94a3b8; }
+  /* ---- 조치할 것 / 그대로 둘 것 묶음 (2026-09-13 요청: 한눈에 딱 갈리게) ---- */
+  tr.sa-act-group td {
+    background: #ffffff; font-size: 12px; font-weight: 800; color: #0f172a;
+    padding: 12px 10px 6px !important; border-bottom: 2px solid rgba(15,23,42,.14);
+  }
+  tr.sa-act-group.rest td { color: #64748b; padding-top: 18px !important; }
+  tr.sa-act-group .sa-act-count { font-weight: 600; color: #64748b; margin-left: 6px; }
+  tr.sa-act-group .sa-act-hint { font-weight: 500; color: #94a3b8; margin-left: 8px; }
+  tr.sa-row-rest > td { opacity: .5; }
+  tr.sa-row-rest:hover > td { opacity: .85; }
   .sa-bid-delta { font-size: 11px; margin-left: 4px; }
   .sa-bid-delta.down { color: #dc2626; }
   .sa-bid-delta.up { color: #15803d; }
@@ -2992,14 +3002,10 @@
           : '이 캠페인에 표시할 키워드 데이터가 없어요.'
       }</div>`;
     }
-    return `
-      <table class="sa-nested-kw-table">
-        <thead>
-          <tr><th>키워드</th><th>광고그룹</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">클릭</th><th>상태</th><th class="num">현재 입찰가</th><th class="num">평균 순위</th><th class="num" title="네이버 시장 추정치 — 이 가격이면 1위">1위 예상가</th><th class="num" title="아랫줄은 지금 입찰가보다 기기별로 몇 단계 오르내리는지(네이버 추정 기준)">추천 입찰가</th><th>조치</th></tr>
-        </thead>
-        <tbody>
-          ${rows.map((k) => `
-            <tr class="${saRowClass(k.status)}">
+    const actRows = rows.filter((k) => saBidIsActionable(k.bid));
+    const restRows = rows.filter((k) => !saBidIsActionable(k.bid));
+    const nestedRow = (k) => `
+            <tr class="${saRowClass(k.status)}${saBidIsActionable(k.bid) ? '' : ' sa-row-rest'}">
               <td>${escapeAttr(k.keyword)}</td>
               <td class="sa-truncate" title="${escapeAttr(k.adgroup)}">${escapeAttr(k.adgroup)}</td>
               <td class="num">${won(Math.round(k.spend))}</td>
@@ -3008,8 +3014,15 @@
               <td class="num">${k.clicks.toLocaleString('ko-KR')}</td>
               <td><span class="sa-status-tag ${k.status}">${SA_STATUS_LABEL[k.status]}</span></td>
               ${saBidCells(k.bid, k.keyword)}
-            </tr>
-          `).join('')}
+            </tr>`;
+    return `
+      <table class="sa-nested-kw-table">
+        <thead>
+          <tr><th>키워드</th><th>광고그룹</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">클릭</th><th>상태</th><th class="num">현재 입찰가</th><th class="num">평균 순위</th><th class="num" title="네이버 시장 추정치 — 이 가격이면 1위">1위 예상가</th><th class="num" title="아랫줄은 지금 입찰가보다 기기별로 몇 단계 오르내리는지(네이버 추정 기준)">추천 입찰가</th><th>조치</th></tr>
+        </thead>
+        <tbody>
+          ${actRows.length ? saActGroupRow('act', actRows.length, 12) + actRows.map(nestedRow).join('') : ''}
+          ${restRows.length ? saActGroupRow('rest', restRows.length, 12) + restRows.map(nestedRow).join('') : ''}
         </tbody>
       </table>
     `;
@@ -3235,6 +3248,10 @@
       if (ra !== rb) return ra - rb;
       return Number(b.spend) - Number(a.spend);
     });
+    // 조치할 것(올림·내림)을 위로, 그대로 둘 것(유지·보류)을 아래로 — 묶음 안에서는 위 정렬을 그대로 둔다.
+    const actRows = rows.filter((r) => saBidIsActionable(r.bid));
+    const restRows = rows.filter((r) => !saBidIsActionable(r.bid));
+    rows = actRows.concat(restRows);
 
     const totalCount = rows.length;
     // 전체 화면일 땐 늘 전부 — 동기화 뒤 화면을 다시 그려도(saKeywordShowAll 이 초기화돼도) 10줄로 줄지 않게.
@@ -3250,8 +3267,12 @@
     document.getElementById('mktNaverSaKeywordTable').innerHTML = shown.length
       ? shown.map((r, idx) => {
           const dot = r.status === 'normal' ? '' : `<span class="status-dot ${r.status}"></span>`;
-          return `
-            <tr class="${saRowClass(r.status)}">
+          const act = saBidIsActionable(r.bid);
+          // 묶음이 시작되는 줄 앞에 제목 줄 — 개수는 보이는 줄이 아니라 묶음 전체 개수.
+          const head = idx === 0 && act ? saActGroupRow('act', actRows.length, colSpan)
+            : (!act && (idx === 0 || saBidIsActionable(shown[idx - 1].bid))) ? saActGroupRow('rest', restRows.length, colSpan) : '';
+          return head + `
+            <tr class="${saRowClass(r.status)}${act ? '' : ' sa-row-rest'}">
               <td class="sa-expand-toggle" onclick="toggleSaKeywordDetail(${idx})">▸</td>
               <td class="sa-truncate" title="${escapeAttr(r.brandName + ' · ' + r.campaign)}">${escapeAttr(r.campaign)}</td>
               <td>${dot}${escapeAttr(r.keyword)}</td>
@@ -3673,6 +3694,17 @@
   }
 
   // 현재 입찰가 | 평균 순위(실제) | 1위 예상가 | 추천 입찰가(+ 그 가격의 예상 순위) | 조치
+  // 입찰가를 바꾸라는 줄(올림·내림 — 제품·브랜드 포함)인지. 유지·보류·입찰가 없음은 「그대로 둘 것」.
+  function saBidIsActionable(b) {
+    return !!(b && (b.action === 'up' || b.action === 'down') && b.recBid && b.bid && b.recBid !== b.bid);
+  }
+  // 묶음 제목 줄. colSpan 은 표 칸 수.
+  function saActGroupRow(kind, count, colSpan) {
+    return kind === 'act'
+      ? `<tr class="sa-act-group"><td colspan="${colSpan}">조치할 것 — 입찰가 바꾸기<span class="sa-act-count">${count}개</span><span class="sa-act-hint">올림 · 내림</span></td></tr>`
+      : `<tr class="sa-act-group rest"><td colspan="${colSpan}">그대로 둘 것<span class="sa-act-count">${count}개</span><span class="sa-act-hint">유지 · 보류 · 입찰가 정보 없음</span></td></tr>`;
+  }
+
   function saBidCells(b, keyword) {
     if (!b) return '<td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td>-</td>';
     const est = b.est;
