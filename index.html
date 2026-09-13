@@ -267,14 +267,6 @@
     border-bottom: 1px solid rgba(15,23,42,.06);
   }
   .sa-detail-sticky .panel-head { margin-bottom: 10px; }
-  /* ---- 키워드 표가 못 보여주는 전환매출이 어디서 났는지 ---- */
-  .sa-revenue-gap {
-    margin: 10px 0 4px; padding: 11px 14px; border-radius: 10px;
-    background: rgba(59,130,246,.07); border: 1px solid rgba(59,130,246,.22);
-    color: #1e3a8a; font-size: 12.5px; line-height: 1.65;
-  }
-  .sa-revenue-gap b { font-weight: 800; }
-  .sa-revenue-gap-sub { margin-top: 3px; color: #334155; }
   /* ---- 「지금 동기화」 진행/완료 알림 ---- */
   .sa-sync-banner {
     display: flex; align-items: center; gap: 12px;
@@ -363,8 +355,6 @@
   .sa-bid-sub { font-size: 10px; color: #64748b; margin-top: 1px; font-weight: 400; }
   /* 입찰가 칸이 붙으면서 칸이 12개가 됐다 — 좁아지면 머리글·금액이 두 줄로 꺾이므로 막고, 넘치면 표 상자가 가로로 스크롤한다. */
   #saDetailPanelKeyword th, #saDetailPanelKeyword td { white-space: nowrap; }
-  .sa-bid-summary { font-size: 11px; color: #64748b; margin-top: 4px; }
-  .sa-bid-summary b { color: #334155; }
 
   /* ---- 표 안의 ROAS: 브랜드별 목표/최소 기준으로 한눈에 갈리게 ---- */
   .roas-bad { color: #dc2626; font-weight: 800; }   /* 최소 미달 */
@@ -683,7 +673,6 @@
           </div>
 
           <div id="saDetailPanelCampaign" style="display:none;">
-            <div class="sa-filter-note">효율 낮은 순 · 같은 등급 안에서는 광고비 큰 순 (ROAS 색: 빨강=최소 미달, 주황=목표 미달, 초록=목표 이상)</div>
             <div class="scroll-box">
               <table>
                 <thead>
@@ -703,9 +692,6 @@
               <button type="button" class="ad-type-filter-btn" data-kwtab="caution" onclick="setNaverSaKwStatus('caution')">주의</button>
               <button type="button" class="ad-type-filter-btn" data-kwtab="waste" onclick="setNaverSaKwStatus('waste')">낭비 키워드</button>
             </div>
-            <div class="sa-filter-note">효율 낮은 순 · 같은 등급 안에서는 광고비 큰 순 (ROAS 색: 빨강=최소 미달, 주황=목표 미달, 초록=목표 이상)</div>
-            <div class="sa-bid-summary" id="saBidSummary"></div>
-            <div class="sa-revenue-gap" id="saKeywordRevenueGap" style="display:none;"></div>
             <div class="scroll-box">
               <table>
                 <thead>
@@ -3102,9 +3088,6 @@
       moreBtn.style.display = 'none';
     }
 
-    renderSaKeywordRevenueGap();
-    renderSaBidSummary();
-
     // 상단 인사이트 칩은 탭/검색과 무관하게 이 달 전체 키워드 기준으로 보여준다
     const all = naverSaKeywordAllRows;
     const wasteCount = all.filter((r) => r.status === 'waste').length;
@@ -3132,52 +3115,6 @@
         <div class="insight-chip-value${wasteCount > 0 ? ' pct-red' : ''}">${wasteCount.toLocaleString('ko-KR')}개</div>
       </div>
     ` : '';
-  }
-
-  // 키워드 표가 구조적으로 못 보여주는 전환매출이 어디서 났는지 밝힌다.
-  // 네이버는 SA(쇼핑검색·브랜드검색)를 키워드 단위로 안 내려준다. 그래서 SA 에서 난 매출은
-  // 키워드 표에 한 줄도 안 뜨는데, 핵심 지표에는 그대로 잡힌다 —
-  // 「광고비 28,420원에 전환매출 179,600원인데 아래 표는 전부 0원」 처럼 보여서
-  // 전환이 어디서 났는지 알 길이 없었다. 그 차액과 범인 캠페인을 여기 적어 준다.
-  function renderSaKeywordRevenueGap() {
-    const el = document.getElementById('saKeywordRevenueGap');
-    if (!el) return;
-    const kwRevenue = naverSaKeywordAllRows.reduce((s, r) => s + Number(r.revenue), 0);
-    // 비교 기준은 캠페인 일별(= 핵심 지표와 같은 값). 기간·브랜드·광고 유형 필터가
-    // 키워드 쪽과 똑같이 걸린 saCampaignAllRows 를 쓰므로 사과와 사과를 견준다.
-    const campRevenue = saCampaignAllRows.reduce((s, r) => s + Number(r.revenue), 0);
-    const gap = campRevenue - kwRevenue;
-    // 차액이 없으면(= 키워드가 매출을 다 설명하면) 굳이 한 줄 더 늘리지 않는다.
-    if (!(campRevenue > 0) || !(gap > 0)) { el.style.display = 'none'; return; }
-
-    // 차액은 두 가지가 섞인다. 뭉뚱그리면 틀린 설명이 되므로 갈라서 적는다.
-    //  ① 키워드가 아예 한 줄도 안 내려오는 캠페인 (SA — 쇼핑검색·브랜드검색)
-    //  ② 키워드가 있긴 한데 그 합이 캠페인 매출에 못 미치는 몫 (확장검색 등 키워드로 안 붙는 경로)
-    const kwCampaigns = new Set(naverSaKeywordAllRows.map((r) => r.campaign));
-    const missing = saCampaignAllRows
-      .filter((r) => Number(r.revenue) > 0 && !kwCampaigns.has(r.campaign))
-      .sort((a, b) => b.revenue - a.revenue);
-    const missingRevenue = missing.reduce((s, r) => s + Number(r.revenue), 0);
-    const otherGap = gap - missingRevenue;
-
-    const parts = [];
-    if (missing.length) {
-      const named = missing.slice(0, 3)
-        .map((r) => `${escapeAttr(r.campaign)} <b>${won(Math.round(r.revenue))}</b>`).join(' · ');
-      const more = missing.length > 3 ? ` 외 ${missing.length - 3}개` : '';
-      parts.push(`<b>${won(Math.round(missingRevenue))}</b> 은 키워드가 아예 안 내려오는 캠페인에서 났어요`
-        + ` — ${named}${more} (네이버가 쇼핑검색·브랜드검색(SA)은 키워드 단위로 안 줍니다)`);
-    }
-    if (otherGap > 0) {
-      parts.push(`<b>${won(Math.round(otherGap))}</b> 은 캠페인에는 잡혔는데 키워드로는 안 붙은 몫이에요`);
-    }
-
-    const share = kwRevenue / campRevenue * 100;
-    el.style.display = '';
-    el.innerHTML =
-      `이 기간 전환매출 <b>${won(Math.round(campRevenue))}</b> 중 아래 키워드 표가 설명하는 건 `
-      + `${won(Math.round(kwRevenue))} (${share.toFixed(0)}%) 뿐이에요.`
-      + `<div class="sa-revenue-gap-sub">${parts.join(' · ')} → <b>「캠페인 성과」 탭</b>에서 보세요.</div>`;
   }
 
   // ==================== 키워드 입찰가 권장 ====================
@@ -3521,46 +3458,6 @@
     return `<td class="num"${title}>${bidTxt}</td><td class="num">${rankTxt}</td><td class="num"${title}>${topTxt}</td>`
       + `<td class="num"${title}>${recTxt}</td>`
       + `<td><span class="sa-bid-tag ${b.action}" title="${escapeAttr(b.why)}">${b.label}</span></td>`;
-  }
-
-  // 표 위 한 줄: 무엇을 기준으로 권장했는지 + 내림/올림/유지/보류 개수.
-  function renderSaBidSummary() {
-    const el = document.getElementById('saBidSummary');
-    if (!el) return;
-    const w = saBidWindow();
-    const earliest = allSaKeywordDailyRows.reduce((m, r) => (!m || r.date < m ? r.date : m), '');
-    const from = earliest && earliest > w.from ? earliest : w.from;
-    const count = { down: 0, up: 0, keep: 0, hold: 0 };
-    let downSpend = 0, brandDown = 0, productUp = 0;
-    // 브랜드 키워드 매출이 전체 ROAS 를 부풀리므로(광고가 없어도 올 매출), 표 기간 ROAS 를 둘로 나눠 보여준다.
-    const split = { brand: { spend: 0, revenue: 0 }, general: { spend: 0, revenue: 0 } };
-    for (const r of naverSaKeywordAllRows) {
-      if (!r.bid) continue;
-      count[r.bid.action]++;
-      if (r.bid.action === 'down') { downSpend += Number(r.spend); if (r.bid.brand) brandDown++; }
-      if (r.bid.product && r.bid.action === 'up') productUp++;
-      // 자사 제품 키워드도 이미 사러 온 사람이라 브랜드 쪽에 묶는다.
-      const g = r.bid.brand || r.bid.product ? split.brand : split.general;
-      g.spend += Number(r.spend); g.revenue += Number(r.revenue);
-    }
-    const totalSpend = split.brand.spend + split.general.spend;
-    const roasTxt = (g) => (g.spend > 0 ? (g.revenue / g.spend * 100).toFixed(0) + '%' : '-');
-    const hasBid = naverSaKeywordAllRows.some((r) => r.bid && r.bid.bid);
-    el.innerHTML = (totalSpend > 0
-        ? `표 기간 ROAS — <b>일반 키워드 ${roasTxt(split.general)}</b> · 브랜드·자사제품 키워드 ${roasTxt(split.brand)}`
-          + ` (광고비의 ${(split.brand.spend / totalSpend * 100).toFixed(0)}%, 광고 없어도 올 매출이 많아 효율은 일반 키워드로 보세요)<br>`
-        : '')
-      + `추천 입찰가 · ${from} ~ ${w.to} 성과 기준(기간 탭과 무관) · 순위는 최근 ${SA_BID_RANK_DAYS}일`
-      + ` · 일반: 목표 ROAS · 클릭 ${SA_BID_MIN_CLICKS}회 미만 보류 · 한 번에 ±${SA_BID_MAX_STEP * 100}%까지`
-      + ` · 브랜드: 올리지 않고 지금 순위를 지키는 최저가까지만(예상가 없으면 실제 클릭비용 × ${SA_BID_BRAND_MARGIN})`
-      + ` · 자사 제품: 1위 목표, 1위가 2위보다 ${SA_BID_TOP_OUTLIER_RATIO}배·${SA_BID_TOP_OUTLIER_GAP}원 넘게 비싼 고가(쿠팡 등)면 그 기기는 2위 목표 — 목표를 지키는 최저가(없거나 안 맞으면 +${SA_BID_MAX_STEP * 100}%)`
-      + ` — <b>내림 ${count.down}</b>${brandDown ? `(브랜드 ${brandDown})` : ''} · <b>올림 ${count.up}</b>${productUp ? `(제품 ${productUp})` : ''} · 유지 ${count.keep} · 보류 ${count.hold}`
-      + (count.down ? ` · 내림 대상의 표 기간 광고비 ${won(Math.round(downSpend))}` : '')
-      + (hasBid ? '' : ' · 현재 입찰가·평균 순위는 다음 동기화부터 들어와요')
-      + (saBidEstimateDate
-        ? ` · 예상 순위는 네이버 시장 추정치(${saBidEstimateDate}, 최근 30일 클릭 있는 키워드만) — 가격 아랫줄 「예상 ○위」가 그 추정. 품질지수에 따라 실제와 1~3위씩 어긋나기도 해요. 마우스를 올리면 1~5위 가격과 실제 평균 순위`
-        : ' · 예상 순위는 네이버 추정치를 받은 뒤부터 보여요')
-      + ' · 「조치」에 마우스를 올리면 계산 근거';
   }
 
   function topKwBy(arr, key) {
