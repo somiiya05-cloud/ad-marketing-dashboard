@@ -158,25 +158,25 @@
 
   /* ---- Tables ---- */
   .scroll-box { max-height: 420px; overflow-y: auto; overflow-x: auto; }
-  /* ---- 키워드 성과 전체 화면 (2026-09-13 요청: 표가 좁아 입찰가 조정하며 보기 불편) ----
+  /* ---- 상세 성과 전체 화면 — 키워드 성과 · 캠페인 성과 (2026-09-13 요청: 표가 좁아 입찰가 조정하며 보기 불편) ----
      패널 자체를 화면 전체로 띄운다(표·펼침·정렬 그대로). 표 상자는 남은 높이를 다 쓰고 머리글은 붙어 있다. */
   .sa-kw-fs-head { display: none; }
-  #saDetailPanelKeyword.is-fullscreen {
+  .sa-fs-panel.is-fullscreen {
     position: fixed; inset: 0; z-index: 1000; background: #ffffff;
     padding: 16px 24px 12px; display: flex; flex-direction: column; overflow: hidden;
   }
-  #saDetailPanelKeyword.is-fullscreen .sa-kw-fs-head {
+  .sa-fs-panel.is-fullscreen .sa-kw-fs-head {
     display: flex; justify-content: space-between; align-items: center; gap: 12px;
     padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid rgba(15,23,42,.08);
   }
   .sa-kw-fs-head h2 { font-size: 16px; margin: 0 0 2px; font-weight: 800; }
-  #saDetailPanelKeyword.is-fullscreen .sa-kw-fs-head { align-items: flex-start; }
+  .sa-fs-panel.is-fullscreen .sa-kw-fs-head { align-items: flex-start; }
   .sa-kw-fs-title { min-width: 0; flex: 1; }
   .sa-kw-fs-filters { margin-top: 10px; }
   .sa-kw-fs-filters .sa-brand-tab-row { margin-top: 8px; }
   .sa-kw-fs-filters .sa-sync-banner { margin-top: 8px; padding: 8px 12px; font-size: 14px; }
-  #saDetailPanelKeyword.is-fullscreen .scroll-box { max-height: none; flex: 1; min-height: 0; }
-  #saDetailPanelKeyword.is-fullscreen #saKeywordShowMoreBtn { display: none !important; }
+  .sa-fs-panel.is-fullscreen .scroll-box { max-height: none; flex: 1; min-height: 0; }
+  .sa-fs-panel.is-fullscreen .sa-fs-more-btn { display: none !important; }
   body.sa-fs-open { overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; color: #1e293b; }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(15,23,42,.07); }
@@ -706,7 +706,15 @@
             </div>
           </div>
 
-          <div id="saDetailPanelCampaign" style="display:none;">
+          <div id="saDetailPanelCampaign" class="sa-fs-panel" style="display:none;">
+            <div class="sa-kw-fs-head">
+              <div class="sa-kw-fs-title">
+                <h2>캠페인 성과</h2>
+                <span class="panel-note" id="saCampFsNote"></span>
+                <div class="sa-kw-fs-filters" id="saCampFsFilters"></div>
+              </div>
+              <button type="button" class="filter-reset-btn" onclick="closeSaFullscreen()">닫기 ✕ (Esc)</button>
+            </div>
             <div class="scroll-box">
               <table>
                 <thead>
@@ -715,10 +723,10 @@
                 <tbody id="mktNaverSaCampaignTable"></tbody>
               </table>
             </div>
-            <button type="button" class="filter-reset-btn" id="saCampaignShowMoreBtn" onclick="toggleSaCampaignShowAll()" style="margin-top:10px; display:none;"></button>
+            <button type="button" class="filter-reset-btn sa-fs-more-btn" id="saCampaignShowMoreBtn" onclick="toggleSaCampaignShowAll()" style="margin-top:10px; display:none;"></button>
           </div>
 
-          <div id="saDetailPanelKeyword">
+          <div id="saDetailPanelKeyword" class="sa-fs-panel">
             <div class="sa-kw-fs-head">
               <div class="sa-kw-fs-title">
                 <h2>키워드 성과</h2>
@@ -726,7 +734,7 @@
                 <!-- 전체 화면을 열면 위 고정바의 기간 탭 · 브랜드 탭 · 동기화 배너를 여기로 옮겨 온다(닫으면 제자리로). -->
                 <div class="sa-kw-fs-filters" id="saKwFsFilters"></div>
               </div>
-              <button type="button" class="filter-reset-btn" onclick="closeSaKeywordFullscreen()">닫기 ✕ (Esc)</button>
+              <button type="button" class="filter-reset-btn" onclick="closeSaFullscreen()">닫기 ✕ (Esc)</button>
             </div>
             <div class="insight-row" id="mktNaverSaKwInsights"></div>
             <div class="filter-group" id="mktNaverSaKwTabs" style="margin-bottom:10px;">
@@ -743,7 +751,7 @@
                 <tbody id="mktNaverSaKeywordTable"></tbody>
               </table>
             </div>
-            <button type="button" class="filter-reset-btn" id="saKeywordShowMoreBtn" onclick="toggleSaKeywordShowAll()" style="margin-top:10px; display:none;"></button>
+            <button type="button" class="filter-reset-btn sa-fs-more-btn" id="saKeywordShowMoreBtn" onclick="toggleSaKeywordShowAll()" style="margin-top:10px; display:none;"></button>
           </div>
 
           <div id="saDetailPanelWaste" style="display:none;">
@@ -3031,7 +3039,8 @@
       return b.spend - a.spend;
     });
 
-    const shown = saCampaignShowAll ? enriched : enriched.slice(0, 10);
+    // 전체 화면일 땐 늘 전부(동기화 뒤 다시 그려져 saCampaignShowAll 이 초기화돼도 줄지 않게).
+    const shown = saCampaignShowAll || saCampaignFullscreen() ? enriched : enriched.slice(0, 10);
     document.getElementById('mktNaverSaCampaignTable').innerHTML = shown.length ? shown.map((r) => `
       <tr class="${saRowClass(r.status)}">
         <td class="sa-expand-toggle" onclick="toggleSaCampaignDetail(${r.idx})">▸</td>
@@ -3053,21 +3062,20 @@
     `).join('') : '<tr><td colspan="9" class="mkt-empty-row">선택한 기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
 
     const moreBtn = document.getElementById('saCampaignShowMoreBtn');
-    if (enriched.length > 10) {
+    // 10개 이하여도 넓게 보려면 전체 화면이 편하다 — 캠페인이 있으면 늘 버튼을 둔다.
+    if (enriched.length > 0) {
       moreBtn.style.display = '';
-      moreBtn.textContent = saCampaignShowAll ? '접기' : `전체 보기 (${enriched.length}개)`;
+      moreBtn.textContent = `전체 화면으로 보기 (${enriched.length}개)`;
     } else {
       moreBtn.style.display = 'none';
     }
+    updateSaFullscreenNote();
   }
   function toggleSaCampaignDetail(idx) {
     const row = document.getElementById('saCampaignDetail' + idx);
     row.style.display = row.style.display === 'none' ? '' : 'none';
   }
-  function toggleSaCampaignShowAll() {
-    saCampaignShowAll = !saCampaignShowAll;
-    renderSaCampaignTable();
-  }
+  function toggleSaCampaignShowAll() { openSaFullscreen('campaign'); }
   // 키워드 한 줄을 펼치면 그 키워드만 1일·3일·한달로 다시 집계해서 보여준다.
   // 표 본문은 위 기간 탭에서 고른 기간 하나만 보여주므로, 추세를 보려면 이게 필요하다.
   // (naver_keyword_performance_daily 를 날짜로 걸러 합치는 것이라 추가 조회는 없다.)
@@ -3135,16 +3143,37 @@
     syncNaverSaKwTabButtons();
     renderNaverSaKeywordSection();
   }
-  function saKeywordFullscreen() {
-    const p = document.getElementById('saDetailPanelKeyword');
-    return !!(p && p.classList.contains('is-fullscreen'));
+  // ---- 상세 성과 전체 화면 (키워드 성과 · 캠페인 성과 공통) ----
+  // 표 안에서 줄만 늘리면 420px 상자 안에서 스크롤해야 해서 보기 불편했다 — 패널을 화면 전체로 띄운다.
+  const SA_FS = {
+    keyword: { panel: 'saDetailPanelKeyword', note: 'saKwFsNote', filters: 'saKwFsFilters',
+      render: () => renderNaverSaKeywordSection(), reset: () => { saKeywordShowAll = false; } },
+    campaign: { panel: 'saDetailPanelCampaign', note: 'saCampFsNote', filters: 'saCampFsFilters',
+      render: () => renderSaCampaignTable(), reset: () => { saCampaignShowAll = false; } },
+  };
+  function saFullscreenKind() {
+    return Object.keys(SA_FS).find((k) => {
+      const p = document.getElementById(SA_FS[k].panel);
+      return p && p.classList.contains('is-fullscreen');
+    }) || null;
   }
+  function saKeywordFullscreen() { return saFullscreenKind() === 'keyword'; }
+  function saCampaignFullscreen() { return saFullscreenKind() === 'campaign'; }
+  // 제목 옆에 무엇을 보고 있는지(기간 · 브랜드 · 광고 유형) — 위 상세 성과 안내줄과 같다. 표를 다시 그릴 때마다 부른다.
+  function updateSaFullscreenNote() {
+    const kind = saFullscreenKind();
+    if (!kind) return;
+    const note = document.getElementById('saDetailNote');
+    const el = document.getElementById(SA_FS[kind].note);
+    if (el) el.textContent = note ? note.textContent : '';
+  }
+
   // 전체 화면에서도 기간 · 브랜드를 바로 바꿀 수 있게(2026-09-13 요청) 고정바의 그 줄들을 통째로 옮겨 온다.
   // 복사하지 않고 옮기는 이유: 버튼 상태를 그리는 함수들이 id 로 찾으므로 한 벌만 있어야 둘이 어긋나지 않는다.
   // 원래 자리에는 표시(주석 노드)를 남겨 두고 닫을 때 그 앞에 돌려놓는다.
   const SA_KW_FS_MOVE_IDS = ['saPeriodTabs', 'saBrandTabs', 'saSyncBanner'];
-  function moveSaFiltersIntoFullscreen() {
-    const box = document.getElementById('saKwFsFilters');
+  function moveSaFiltersIntoFullscreen(boxId) {
+    const box = document.getElementById(boxId);
     if (!box) return;
     for (const id of SA_KW_FS_MOVE_IDS) {
       const el = document.getElementById(id);
@@ -3165,33 +3194,31 @@
     }
     updateSaFilterBarHeight();
   }
-  function openSaKeywordFullscreen() {
-    const p = document.getElementById('saDetailPanelKeyword');
+  function openSaFullscreen(kind) {
+    const cfg = SA_FS[kind];
+    const p = cfg && document.getElementById(cfg.panel);
     if (!p) return;
-    moveSaFiltersIntoFullscreen();
+    if (saFullscreenKind()) closeSaFullscreen();
+    moveSaFiltersIntoFullscreen(cfg.filters);
     p.classList.add('is-fullscreen');
     document.body.classList.add('sa-fs-open');
-    // 무엇을 보고 있는지(기간 · 브랜드 · 광고 유형)는 위 상세 성과 안내줄과 같다.
-    const note = document.getElementById('saDetailNote');
-    document.getElementById('saKwFsNote').textContent = note ? note.textContent : '';
-    renderNaverSaKeywordSection();
+    cfg.render();
+    updateSaFullscreenNote();
   }
-  function closeSaKeywordFullscreen() {
-    const p = document.getElementById('saDetailPanelKeyword');
-    if (!p) return;
-    p.classList.remove('is-fullscreen');
+  function closeSaFullscreen() {
+    const kind = saFullscreenKind();
+    if (!kind) return;
+    const cfg = SA_FS[kind];
+    document.getElementById(cfg.panel).classList.remove('is-fullscreen');
     document.body.classList.remove('sa-fs-open');
     restoreSaFiltersFromFullscreen();
-    saKeywordShowAll = false;
-    renderNaverSaKeywordSection();
+    cfg.reset();
+    cfg.render();
   }
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && saKeywordFullscreen()) closeSaKeywordFullscreen();
+    if (e.key === 'Escape' && saFullscreenKind()) closeSaFullscreen();
   });
-  function toggleSaKeywordShowAll() {
-    // 표 안에서 줄만 늘리면 420px 상자 안에서 스크롤해야 해서 보기 불편했다 — 전체 화면으로 연다.
-    openSaKeywordFullscreen();
-  }
+  function toggleSaKeywordShowAll() { openSaFullscreen('keyword'); }
 
   // 펼침 칸에서 어느 키워드인지 찾으려고 화면에 그린 순서 그대로 들고 있는다.
   let saKeywordShownRows = [];
@@ -3212,10 +3239,7 @@
     const totalCount = rows.length;
     // 전체 화면일 땐 늘 전부 — 동기화 뒤 화면을 다시 그려도(saKeywordShowAll 이 초기화돼도) 10줄로 줄지 않게.
     const shown = saKeywordShowAll || saKeywordFullscreen() ? rows : rows.slice(0, 10);
-    if (saKeywordFullscreen()) {
-      const note = document.getElementById('saDetailNote');
-      document.getElementById('saKwFsNote').textContent = note ? note.textContent : '';
-    }
+    updateSaFullscreenNote();
     saKeywordShownRows = shown;
 
     // 브랜드 열은 뺐다(2026-09-12 요청). 캠페인 이름에 브랜드가 들어 있어(명퉤__PPP,
