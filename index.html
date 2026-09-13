@@ -3705,15 +3705,17 @@
   // 현재 입찰가 | 평균 순위(실제) | 1위 예상가 | 추천 입찰가(+ 그 가격의 예상 순위) | 조치
   // 키워드 표에서 지금 입찰가를 바꿀 줄(조치할 것 = 내림 → 증액할 것 = 올림) — 표를 그릴 때마다 채운다(기간·브랜드·광고 유형·상태 탭이 그대로 걸린 결과).
   let saKeywordActRows = [];
-  // 바꿀 줄만 엑셀로 내려받는다. 칸은 요청대로 네 개만: 캠페인 · 키워드 · 현재입찰가 · 수정입찰가.
+  // 바꿀 줄만 엑셀로 내려받는다. 칸: 캠페인 · 광고그룹 · 키워드 · 현재입찰가 · 수정입찰가.
+  // 광고그룹은 2026-09-13 추가 — 같은 캠페인에 같은 키워드가 모바일·PC 광고그룹으로 따로 있어서(명퉤__PPP 액막이명태)
+  // 네 칸만으로는 네이버에서 어느 쪽을 고칠지 구분이 안 됐다.
   function downloadSaBidChanges() {
     const rows = saKeywordActRows;
     if (!rows.length) { alert('지금 조건에서는 입찰가를 바꿀 키워드가 없어요.'); return; }
     if (!window.XLSX) { alert('엑셀 기능을 불러오지 못했어요. 새로고침한 뒤 다시 눌러 주세요.'); return; }
-    const aoa = [['캠페인', '키워드', '현재입찰가', '수정입찰가']]
-      .concat(rows.map((r) => [r.campaign, r.keyword, r.bid.bid, r.bid.recBid]));
+    const aoa = [['캠페인', '광고그룹', '키워드', '현재입찰가', '수정입찰가']]
+      .concat(rows.map((r) => [r.campaign, r.adgroup, r.keyword, r.bid.bid, r.bid.recBid]));
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ wch: 30 }, { wch: 26 }, { wch: 12 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 30 }, { wch: 34 }, { wch: 26 }, { wch: 12 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '입찰가 조정');
     const brand = saFilter.brand ? naverSaBrandName(saFilter.brand) : '전체';
