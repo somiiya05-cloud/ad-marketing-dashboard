@@ -1449,37 +1449,52 @@
     }
   }
 
-  // ---- 네이버 순위별 예상 입찰가 (키워드 표 「예상 순위」 칸) ----
-  // naver_keyword_bid_estimate 의 가장 최근 날짜 하루치만 받는다(시장 추정치라 최신만 의미가 있다).
-  // keyword → { MOBILE: [1위 입찰가, 2위, … 5위], PC: [...] }
+  // ---- 네이버 순위별 예상 입찰가 (1위 예상가 · 추천 입찰가 아랫줄 예상 순위) ----
+  // 두 표의 가장 최근 날짜 하루치만 받는다(추정치라 최신만 의미가 있다).
+  //   naver_keyword_bid_estimate_by_id : 우리 키워드 ID 기준 — 그 키워드 품질지수를 반영해 실제에 조금 더 가깝다
+  //     (2026-09-13 노출 20회 이상 45개 대조: 평균 오차 1.37 → 1.18위, 더 가까움 12 / 더 멂 5). 이걸 먼저 쓴다.
+  //   naver_keyword_bid_estimate       : 키워드 글자 기준 시장 평균 — ID 기준이 없는 키워드에만.
+  // 각 맵: 키 → { MOBILE: [1위 입찰가, 2위, … 5위], PC: [...] }
+  let saBidEstimateById = new Map();
   let saBidEstimateByKeyword = new Map();
   let saBidEstimateDate = '';
-  async function loadSaBidEstimates() {
-    try {
-      const { data: latest, error } = await client.from('naver_keyword_bid_estimate')
-        .select('date').order('date', { ascending: false }).limit(1);
-      if (error || !latest || !latest.length) return;
-      const date = latest[0].date;
-      const rows = [];
-      for (let page = 0; ; page++) {
-        const { data, error: pageError } = await fetchPageWithRetry(() => client.from('naver_keyword_bid_estimate')
-          .select('device,keyword,position,bid').eq('date', date).order('id', { ascending: true })
-          .range(page * 1000, page * 1000 + 999));
-        if (pageError || !data) return;
-        rows.push(...data);
-        if (data.length < 1000) break;
-      }
-      const map = new Map();
-      for (const r of rows) {
-        const e = map.get(r.keyword) || { MOBILE: [], PC: [] };
-        if (e[r.device] && r.position >= 1 && r.position <= 5) e[r.device][r.position - 1] = Number(r.bid);
-        map.set(r.keyword, e);
-      }
-      saBidEstimateByKeyword = map;
-      saBidEstimateDate = date;
-    } catch (e) {
-      // 표가 아직 없거나(SQL 실행 전) 실패해도 나머지 화면은 그대로 떠야 한다.
+  let saBidEstimateByIdDate = '';
+  async function loadSaEstimateTable(table, keyCol) {
+    const { data: latest, error } = await client.from(table).select('date').order('date', { ascending: false }).limit(1);
+    if (error || !latest || !latest.length) return null;
+    const date = latest[0].date;
+    const rows = [];
+    for (let page = 0; ; page++) {
+      const { data, error: pageError } = await fetchPageWithRetry(() => client.from(table)
+        .select(`device,${keyCol},position,bid`).eq('date', date).order('id', { ascending: true })
+        .range(page * 1000, page * 1000 + 999));
+      if (pageError || !data) return null;
+      rows.push(...data);
+      if (data.length < 1000) break;
     }
+    const map = new Map();
+    for (const r of rows) {
+      const e = map.get(r[keyCol]) || { MOBILE: [], PC: [] };
+      if (e[r.device] && r.position >= 1 && r.position <= 5) e[r.device][r.position - 1] = Number(r.bid);
+      map.set(r[keyCol], e);
+    }
+    return { map, date };
+  }
+  async function loadSaBidEstimates() {
+    // 표가 아직 없거나(SQL 실행 전) 실패해도 나머지 화면은 그대로 떠야 한다 — 각각 따로 받는다.
+    const [byId, byKeyword] = await Promise.all([
+      loadSaEstimateTable('naver_keyword_bid_estimate_by_id', 'keyword_id').catch(() => null),
+      loadSaEstimateTable('naver_keyword_bid_estimate', 'keyword').catch(() => null),
+    ]);
+    if (byId) { saBidEstimateById = byId.map; saBidEstimateByIdDate = byId.date; }
+    if (byKeyword) { saBidEstimateByKeyword = byKeyword.map; saBidEstimateDate = byKeyword.date; }
+  }
+  // 키워드 한 줄에 쓸 예상가 — ID 기준이 있으면 그것, 없으면 글자 기준. source 는 툴팁 문구용.
+  function saEstimateFor(keywordId, keyword) {
+    const byId = keywordId && saBidEstimateById.get(keywordId);
+    if (byId) return { ...byId, source: 'id', date: saBidEstimateByIdDate };
+    const byKeyword = saBidEstimateByKeyword.get(keyword);
+    return byKeyword ? { ...byKeyword, source: 'keyword', date: saBidEstimateDate } : null;
   }
 
   const WASTE_KEYWORD_MIN_CLICKS = 10;
@@ -2806,7 +2821,7 @@
         campaign: r.campaign, adgroup: r.adgroup, salesChannel: r.sales_channel || null, landingUrl: r.landing_url || null,
         spend, impressions, clicks, conversions, revenue,
         ctr: ctrOf({ impressions, clicks }), cpc: cpcOf({ clicks, spend }), cpa, roas, status,
-        bid: saBidAdvice(r.channel, bidAggById.get(r.keyword_id), latestBidById.get(r.keyword_id), r.keyword),
+        bid: saBidAdvice(r.channel, bidAggById.get(r.keyword_id), latestBidById.get(r.keyword_id), r.keyword, r.keyword_id),
       };
     });
 
@@ -3185,14 +3200,15 @@
 
   // agg: 성과 창 안에서 합친 그 키워드 성과(없을 수 있음)
   // latest: { bid, group, rankWeighted, rankImpressions } 지금 입찰가와 최근 7일 순위(없을 수 있음)
-  function saBidAdvice(channel, agg, latest, keyword) {
+  function saBidAdvice(channel, agg, latest, keyword, keywordId) {
     const bid = latest ? latest.bid : null;
     const group = latest ? latest.group : false;
     const clicks = agg ? Number(agg.clicks) : 0;
     const avgRank = latest && latest.rankImpressions > 0 ? latest.rankWeighted / latest.rankImpressions : null;
     const product = saIsProductKeyword(keyword);
     const brand = !product && saIsBrandKeyword(keyword);
-    const base = { bid, group, avgRank, clicks, recBid: null, change: 0, brand, product };
+    const est = saEstimateFor(keywordId, keyword);
+    const base = { bid, group, avgRank, clicks, recBid: null, change: 0, brand, product, est };
     if (product) return saProductBidAdvice(channel, base, agg, latest, keyword);
     if (brand) return saBrandBidAdvice(base, agg, latest, keyword);
     if (clicks < SA_BID_MIN_CLICKS) {
@@ -3224,7 +3240,6 @@
     // 올려도 예상 순위가 안 오르면 클릭비용만 더 나간다 — 2026-09-13 벽지얼룩제거: 710 → 850원(+20%)이어도
     // 모바일 3위 · PC 3위 그대로였다. 순위별 예상가가 있으면 「한 단계라도 오르는 가장 싼 값」으로 맞추고,
     // 한도(+20%) 안에서 안 오르면 올리지 않는다. 고가 1위(쿠팡 등) 자리로 오르는 건 치지 않는다.
-    const est = saBidEstimateByKeyword.get(keyword);
     if (action === 'up' && bid && recBid > bid && est) {
       const now = saExpectedRankLine(est, bid);
       const step = saNextRankStep(est, bid);
@@ -3333,7 +3348,7 @@
         why: `${lead} ${reason} 한 번에 ${SA_BID_MAX_STEP * 100}%씩 올리고 다음 날 순위를 다시 봅니다${roasWarn}${groupWarn}` };
     };
 
-    const est = saBidEstimateByKeyword.get(keyword);
+    const est = base.est;
     const targets = est ? saDeviceTargets(est, () => 1) : [];
     if (!targets.length) {
       // 예상가가 없으면 예전 규칙 — 1위(평균 1.2위 이내)면 그대로, 아니면 +20%.
@@ -3391,7 +3406,7 @@
 
     // 순위별 예상가가 있으면 「지금 순위(고가 1위 기기는 2위)를 지키는 최저가」까지만 내린다 (2026-09-13).
     // 예전 규칙(실제 클릭비용 × 1.3)은 명퉤 370 → 300원처럼 추정상 모바일 1위 → 3위로 떨어지는 값을 권했다.
-    const est = saBidEstimateByKeyword.get(keyword);
+    const est = base.est;
     if (est && bid) {
       const targets = saDeviceTargets(est, (d, ladder) => {
         const r = saExpectedRank(ladder, bid);
@@ -3458,14 +3473,16 @@
       ? `${label} ` + ladder.map((v, i) => (v > 0 ? `${i + 1}위 ${won(v)}` : '')).filter(Boolean).join(' · ')
       : '';
     return [ladderTxt('모바일', est.MOBILE), ladderTxt('PC', est.PC)].filter(Boolean).join(' / ')
-      + ` — 네이버 시장 추정치(${saBidEstimateDate}). 실제 순위는 품질지수에 따라 달라요`
+      + (est.source === 'id'
+        ? ` — 네이버 추정치(${est.date}, 우리 키워드 품질지수 반영). 평균값이라 실제 순위와 1~2위씩 어긋나기도 해요`
+        : ` — 네이버 시장 추정치(${est.date}, 키워드 글자 기준). 실제 순위는 품질지수에 따라 달라요`)
       + (b && b.avgRank != null ? ` · 지금 실제 평균 ${b.avgRank.toFixed(1)}위` : '');
   }
 
   // 현재 입찰가 | 평균 순위(실제) | 1위 예상가 | 추천 입찰가(+ 그 가격의 예상 순위) | 조치
   function saBidCells(b, keyword) {
     if (!b) return '<td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td>-</td>';
-    const est = saBidEstimateByKeyword.get(keyword);
+    const est = b.est;
     const title = est ? ` title="${escapeAttr(saEstimateTitle(est, b))}"` : '';
     const sub = (line) => (line ? `<div class="sa-bid-sub">예상 ${line}</div>` : '');
 
