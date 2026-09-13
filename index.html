@@ -351,6 +351,7 @@
   .sa-bid-delta.down { color: #dc2626; }
   .sa-bid-delta.up { color: #15803d; }
   .sa-bid-group { font-size: 10px; color: #94a3b8; margin-left: 4px; }
+  .sa-bid-alt { font-size: 10px; color: #64748b; margin-top: 1px; }
   /* 입찰가 칸이 붙으면서 칸이 12개가 됐다 — 좁아지면 머리글·금액이 두 줄로 꺾이므로 막고, 넘치면 표 상자가 가로로 스크롤한다. */
   #saDetailPanelKeyword th, #saDetailPanelKeyword td { white-space: nowrap; }
   .sa-bid-summary { font-size: 11px; color: #64748b; margin-top: 4px; }
@@ -3189,7 +3190,8 @@
   // ---- 자사 제품 키워드: 목표는 ROAS 가 아니라 1위 유지 (2026-09-13 요청) ----
   // 브랜드명 없이 제품명으로 찾는 사람도 이미 우리 제품을 사러 온 사람이다. 이 자리를 경쟁사에 내주지 않는 게 목적이라
   // 1위가 아니면 올리고, 1위면 내리지 않는다(여유를 걷어내다 1위를 잃으면 목적과 반대).
-  // 네이버는 1위에 필요한 입찰가를 이 표에 주지 않아서, 1위가 아니면 한 번에 20% 씩 올리고 다음 날 순위를 다시 본다.
+  // 1위가 아니면 네이버 1위 예상가(naver_keyword_bid_estimate)를 권한다. 예상가가 없거나, 추정상 이미 1위 가격인데
+  // 실제로는 1위가 아닌(추정이 안 맞는) 키워드는 한 번에 20% 씩 올리고 다음 날 순위를 다시 본다.
   // 키워드에 이 이름이 들어가면 자사 제품 키워드 — 브랜드명이 같이 들어가도(빠이러스킬파이어) 제품 규칙이 먼저다.
   const SA_PRODUCT_KEYWORD_NAMES = ['킬파이어', '메가스크럽'];
   const SA_BID_PRODUCT_TOP_RANK = 1.2;   // 최근 7일 평균 순위가 이 안이면 1위를 지키고 있는 것으로 본다
@@ -3214,7 +3216,7 @@
     const product = saIsProductKeyword(keyword);
     const brand = !product && saIsBrandKeyword(keyword);
     const base = { bid, group, avgRank, clicks, recBid: null, change: 0, brand, product };
-    if (product) return saProductBidAdvice(channel, base, agg, latest);
+    if (product) return saProductBidAdvice(channel, base, agg, latest, keyword);
     if (brand) return saBrandBidAdvice(base, agg, latest);
     if (clicks < SA_BID_MIN_CLICKS) {
       return { ...base, action: 'hold', label: '보류',
@@ -3247,7 +3249,11 @@
     return { ...base, action, label, why, recBid, change };
   }
 
-  function saProductBidAdvice(channel, base, agg, latest) {
+  // 모바일 1위가 PC 1위보다 이만큼 이상 비싸면(또는 그 반대) 「한쪽만 1위」 가격도 같이 보여준다.
+  // 2026-09-13 킬파이어가글: 모바일 1위 6,080원 · PC 1위 1,330원 — 둘 다 1위를 권하면 지금 입찰가의 13배다.
+  const SA_BID_PRODUCT_ALT_RATIO = 1.5;
+
+  function saProductBidAdvice(channel, base, agg, latest, keyword) {
     const { bid, group, avgRank, clicks } = base;
     const groupWarn = group ? ' · ⚠ 광고그룹 입찰가를 따르는 키워드 — 이 키워드만 바꾸려면 키워드 입찰가를 따로 지정하세요' : '';
     if (avgRank == null) {
@@ -3266,11 +3272,39 @@
       return { ...base, action: 'keep', label: '제품·유지', recBid: bid, change: 0,
         why: `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위로 1위를 지키는 중 — 입찰가를 내리면 1위를 잃을 수 있어 그대로 둡니다${roasWarn}${groupWarn}` };
     }
-    const recBid = bid ? Math.max(NAVER_MIN_BID, Math.floor(bid * (1 + SA_BID_MAX_STEP) / 10) * 10) : null;
-    return { ...base, action: 'up', label: '제품·올림', recBid,
-      change: bid && recBid ? (recBid - bid) / bid : SA_BID_MAX_STEP,
-      why: `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위 — 1위가 아니에요.`
-        + ` 네이버가 1위 가격을 알려주지 않아 한 번에 ${SA_BID_MAX_STEP * 100}%씩 올리고 다음 날 순위를 다시 봅니다${roasWarn}${groupWarn}` };
+    const notTop = `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위 — 1위가 아니에요.`;
+    // 20% 씩 올려 보는 방식 — 1위 예상가가 없거나 믿을 수 없을 때만 쓴다.
+    const stepUp = (reason) => {
+      const recBid = bid ? Math.max(NAVER_MIN_BID, Math.floor(bid * (1 + SA_BID_MAX_STEP) / 10) * 10) : null;
+      return { ...base, action: 'up', label: '제품·올림', recBid,
+        change: bid && recBid ? (recBid - bid) / bid : SA_BID_MAX_STEP,
+        why: `${notTop} ${reason} 한 번에 ${SA_BID_MAX_STEP * 100}%씩 올리고 다음 날 순위를 다시 봅니다${roasWarn}${groupWarn}` };
+    };
+
+    // 1위 예상가 기준 (2026-09-13 요청) — 20% 씩 올려서는 1위에 못 닿는 키워드가 많았다
+    // (킬파이어가글 470 → 560원이어도 추정 2위 그대로, 1위는 모바일 6,080원).
+    const est = saBidEstimateByKeyword.get(keyword);
+    const mob1 = est && est.MOBILE[0] > 0 ? est.MOBILE[0] : null;
+    const pc1 = est && est.PC[0] > 0 ? est.PC[0] : null;
+    if (!mob1 && !pc1) return stepUp('네이버 1위 예상가가 없는 키워드라(최근 30일 클릭이 없으면 안 받아요)');
+    const both = Math.max(mob1 || 0, pc1 || 0);
+    // 추정상으로는 지금 가격이면 이미 1위인데 실제로는 아닌 경우 — 이 키워드엔 추정이 안 맞으니 믿지 않는다.
+    if (bid && both <= bid) {
+      return stepUp(`추정상으로는 지금 가격(${won(bid)})이면 1위인데(모바일 1위 ${mob1 ? won(mob1) : '-'} · PC 1위 ${pc1 ? won(pc1) : '-'}) 실제로는 아니라, 추정이 안 맞는 키워드예요.`);
+    }
+    const recBid = Math.max(NAVER_MIN_BID, Math.ceil(both / 10) * 10);
+    // 한쪽 기기 1위가 훨씬 싸면 그 가격도 같이 — 어느 쪽을 지킬지는 사람이 고른다.
+    let alt = null;
+    if (mob1 && pc1 && Math.max(mob1, pc1) >= Math.min(mob1, pc1) * SA_BID_PRODUCT_ALT_RATIO) {
+      const cheap = mob1 < pc1 ? { device: '모바일', price: mob1 } : { device: 'PC', price: pc1 };
+      if (!bid || cheap.price > bid) alt = { label: `${cheap.device}만 1위`, bid: Math.ceil(cheap.price / 10) * 10 };
+    }
+    return { ...base, action: 'up', label: '제품·올림', recBid, alt,
+      change: bid ? (recBid - bid) / bid : 0,
+      why: `${notTop} 네이버 1위 예상가 — 모바일 ${mob1 ? won(mob1) : '-'} · PC ${pc1 ? won(pc1) : '-'}.`
+        + ` 둘 다 1위가 되려면 ${won(recBid)}`
+        + (alt ? `, ${alt.label}이면 ${won(alt.bid)}` : '')
+        + `. 시장 추정치라 실제로는 더 싸게 1위가 되기도 해요 — 바꾼 뒤 평균 순위를 확인하세요${roasWarn}${groupWarn}` };
   }
 
   function saBrandBidAdvice(base, agg, latest) {
@@ -3328,7 +3362,10 @@
     const ladderTxt = (label, ladder) => ladder.some((v) => v > 0)
       ? `${label} ` + ladder.map((v, i) => (v > 0 ? `${i + 1}위 ${won(v)}` : '')).filter(Boolean).join(' · ')
       : '';
-    const title = [ladderTxt('모바일', est.MOBILE), ladderTxt('PC', est.PC)].filter(Boolean).join(' / ')
+    const altTxt = b.alt
+      ? ` · ${b.alt.label} ${won(b.alt.bid)}이면 모바일 ${saRankTxt(saExpectedRank(est.MOBILE, b.alt.bid))} · PC ${saRankTxt(saExpectedRank(est.PC, b.alt.bid))}`
+      : '';
+    const title = [ladderTxt('모바일', est.MOBILE), ladderTxt('PC', est.PC)].filter(Boolean).join(' / ') + altTxt
       + ` — 네이버 시장 추정치(${saBidEstimateDate}). 실제 순위는 품질지수에 따라 달라요`
       + (b.avgRank != null ? ` · 지금 실제 평균 ${b.avgRank.toFixed(1)}위` : '');
     return `<td title="${escapeAttr(title)}">${txt}</td>`;
@@ -3345,6 +3382,7 @@
       const delta = pct === 0 ? '' : `<span class="sa-bid-delta ${cls}">${pct > 0 ? '+' : ''}${pct}%</span>`;
       // 입찰가가 아직 안 들어온 키워드(이 기능 이전 데이터)는 원 대신 몇 % 움직일지만 보여준다.
       recTxt = b.recBid ? won(b.recBid) + delta : (delta || '그대로');
+      if (b.alt) recTxt += `<div class="sa-bid-alt">${escapeAttr(b.alt.label)} ${won(b.alt.bid)}</div>`;
     }
     return `<td class="num">${bidTxt}</td><td class="num">${rankTxt}</td><td class="num">${recTxt}</td>`
       + saExpectedRankCell(b, keyword)
@@ -3381,7 +3419,7 @@
       + `권장 입찰가 · ${from} ~ ${w.to} 성과 기준(기간 탭과 무관) · 순위는 최근 ${SA_BID_RANK_DAYS}일`
       + ` · 일반: 목표 ROAS · 클릭 ${SA_BID_MIN_CLICKS}회 미만 보류 · 한 번에 ±${SA_BID_MAX_STEP * 100}%까지`
       + ` · 브랜드: 올리지 않고 실제 클릭비용 × ${SA_BID_BRAND_MARGIN} 까지만`
-      + ` · 자사 제품: 1위(평균 ${SA_BID_PRODUCT_TOP_RANK}위 이내) 목표, 아니면 +${SA_BID_MAX_STEP * 100}%`
+      + ` · 자사 제품: 1위(평균 ${SA_BID_PRODUCT_TOP_RANK}위 이내) 목표, 아니면 네이버 1위 예상가(없거나 안 맞으면 +${SA_BID_MAX_STEP * 100}%)`
       + ` — <b>내림 ${count.down}</b>${brandDown ? `(브랜드 ${brandDown})` : ''} · <b>올림 ${count.up}</b>${productUp ? `(제품 ${productUp})` : ''} · 유지 ${count.keep} · 보류 ${count.hold}`
       + (count.down ? ` · 내림 대상의 표 기간 광고비 ${won(Math.round(downSpend))}` : '')
       + (hasBid ? '' : ' · 현재 입찰가·평균 순위는 다음 동기화부터 들어와요')
