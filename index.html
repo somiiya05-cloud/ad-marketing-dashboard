@@ -170,6 +170,11 @@
     padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid rgba(15,23,42,.08);
   }
   .sa-kw-fs-head h2 { font-size: 16px; margin: 0 0 2px; font-weight: 800; }
+  #saDetailPanelKeyword.is-fullscreen .sa-kw-fs-head { align-items: flex-start; }
+  .sa-kw-fs-title { min-width: 0; flex: 1; }
+  .sa-kw-fs-filters { margin-top: 10px; }
+  .sa-kw-fs-filters .sa-brand-tab-row { margin-top: 8px; }
+  .sa-kw-fs-filters .sa-sync-banner { margin-top: 8px; padding: 8px 12px; font-size: 14px; }
   #saDetailPanelKeyword.is-fullscreen .scroll-box { max-height: none; flex: 1; min-height: 0; }
   #saDetailPanelKeyword.is-fullscreen #saKeywordShowMoreBtn { display: none !important; }
   body.sa-fs-open { overflow: hidden; }
@@ -715,9 +720,11 @@
 
           <div id="saDetailPanelKeyword">
             <div class="sa-kw-fs-head">
-              <div>
+              <div class="sa-kw-fs-title">
                 <h2>키워드 성과</h2>
                 <span class="panel-note" id="saKwFsNote"></span>
+                <!-- 전체 화면을 열면 위 고정바의 기간 탭 · 브랜드 탭 · 동기화 배너를 여기로 옮겨 온다(닫으면 제자리로). -->
+                <div class="sa-kw-fs-filters" id="saKwFsFilters"></div>
               </div>
               <button type="button" class="filter-reset-btn" onclick="closeSaKeywordFullscreen()">닫기 ✕ (Esc)</button>
             </div>
@@ -3132,9 +3139,36 @@
     const p = document.getElementById('saDetailPanelKeyword');
     return !!(p && p.classList.contains('is-fullscreen'));
   }
+  // 전체 화면에서도 기간 · 브랜드를 바로 바꿀 수 있게(2026-09-13 요청) 고정바의 그 줄들을 통째로 옮겨 온다.
+  // 복사하지 않고 옮기는 이유: 버튼 상태를 그리는 함수들이 id 로 찾으므로 한 벌만 있어야 둘이 어긋나지 않는다.
+  // 원래 자리에는 표시(주석 노드)를 남겨 두고 닫을 때 그 앞에 돌려놓는다.
+  const SA_KW_FS_MOVE_IDS = ['saPeriodTabs', 'saBrandTabs', 'saSyncBanner'];
+  function moveSaFiltersIntoFullscreen() {
+    const box = document.getElementById('saKwFsFilters');
+    if (!box) return;
+    for (const id of SA_KW_FS_MOVE_IDS) {
+      const el = document.getElementById(id);
+      if (!el || el._saHome) continue;
+      const mark = document.createComment('sa-fs-home:' + id);
+      el.parentNode.insertBefore(mark, el);
+      el._saHome = mark;
+      box.appendChild(el);
+    }
+  }
+  function restoreSaFiltersFromFullscreen() {
+    for (const id of SA_KW_FS_MOVE_IDS) {
+      const el = document.getElementById(id);
+      if (!el || !el._saHome) continue;
+      el._saHome.parentNode.insertBefore(el, el._saHome);
+      el._saHome.remove();
+      el._saHome = null;
+    }
+    updateSaFilterBarHeight();
+  }
   function openSaKeywordFullscreen() {
     const p = document.getElementById('saDetailPanelKeyword');
     if (!p) return;
+    moveSaFiltersIntoFullscreen();
     p.classList.add('is-fullscreen');
     document.body.classList.add('sa-fs-open');
     // 무엇을 보고 있는지(기간 · 브랜드 · 광고 유형)는 위 상세 성과 안내줄과 같다.
@@ -3147,6 +3181,7 @@
     if (!p) return;
     p.classList.remove('is-fullscreen');
     document.body.classList.remove('sa-fs-open');
+    restoreSaFiltersFromFullscreen();
     saKeywordShowAll = false;
     renderNaverSaKeywordSection();
   }
@@ -3177,6 +3212,10 @@
     const totalCount = rows.length;
     // 전체 화면일 땐 늘 전부 — 동기화 뒤 화면을 다시 그려도(saKeywordShowAll 이 초기화돼도) 10줄로 줄지 않게.
     const shown = saKeywordShowAll || saKeywordFullscreen() ? rows : rows.slice(0, 10);
+    if (saKeywordFullscreen()) {
+      const note = document.getElementById('saDetailNote');
+      document.getElementById('saKwFsNote').textContent = note ? note.textContent : '';
+    }
     saKeywordShownRows = shown;
 
     // 브랜드 열은 뺐다(2026-09-12 요청). 캠페인 이름에 브랜드가 들어 있어(명퉤__PPP,
