@@ -177,6 +177,8 @@
   .sa-kw-fs-filters .sa-sync-banner { margin-top: 8px; padding: 8px 12px; font-size: 14px; }
   .sa-fs-panel.is-fullscreen .scroll-box { max-height: none; flex: 1; min-height: 0; }
   .sa-fs-panel.is-fullscreen .sa-fs-more-btn { display: none !important; }
+  /* 전체 화면에서는 위 요약 칸(광고비·전환·ROAS 상위 키워드, 낭비 키워드 수)을 빼고 표를 위로 올린다 (2026-09-13 요청). */
+  .sa-fs-panel.is-fullscreen #mktNaverSaKwInsights { display: none; }
   body.sa-fs-open { overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; color: #1e293b; }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(15,23,42,.07); }
