@@ -3151,6 +3151,18 @@
     const k = String(keyword || '').replace(/\s/g, '');
     return SA_BRAND_KEYWORD_NAMES.some((name) => k.includes(name));
   }
+
+  // ---- 자사 제품 키워드: 목표는 ROAS 가 아니라 1위 유지 (2026-09-13 요청) ----
+  // 브랜드명 없이 제품명으로 찾는 사람도 이미 우리 제품을 사러 온 사람이다. 이 자리를 경쟁사에 내주지 않는 게 목적이라
+  // 1위가 아니면 올리고, 1위면 내리지 않는다(여유를 걷어내다 1위를 잃으면 목적과 반대).
+  // 네이버는 1위에 필요한 입찰가를 이 표에 주지 않아서, 1위가 아니면 한 번에 20% 씩 올리고 다음 날 순위를 다시 본다.
+  // 키워드에 이 이름이 들어가면 자사 제품 키워드 — 브랜드명이 같이 들어가도(빠이러스킬파이어) 제품 규칙이 먼저다.
+  const SA_PRODUCT_KEYWORD_NAMES = ['킬파이어', '메가스크럽'];
+  const SA_BID_PRODUCT_TOP_RANK = 1.2;   // 최근 7일 평균 순위가 이 안이면 1위를 지키고 있는 것으로 본다
+  function saIsProductKeyword(keyword) {
+    const k = String(keyword || '').replace(/\s/g, '');
+    return SA_PRODUCT_KEYWORD_NAMES.some((name) => k.includes(name));
+  }
   const NAVER_MIN_BID = 70;
 
   function saBidWindow() {
@@ -3165,8 +3177,10 @@
     const group = latest ? latest.group : false;
     const clicks = agg ? Number(agg.clicks) : 0;
     const avgRank = latest && latest.rankImpressions > 0 ? latest.rankWeighted / latest.rankImpressions : null;
-    const brand = saIsBrandKeyword(keyword);
-    const base = { bid, group, avgRank, clicks, recBid: null, change: 0, brand };
+    const product = saIsProductKeyword(keyword);
+    const brand = !product && saIsBrandKeyword(keyword);
+    const base = { bid, group, avgRank, clicks, recBid: null, change: 0, brand, product };
+    if (product) return saProductBidAdvice(channel, base, agg, latest);
     if (brand) return saBrandBidAdvice(base, agg, latest);
     if (clicks < SA_BID_MIN_CLICKS) {
       return { ...base, action: 'hold', label: '보류',
@@ -3197,6 +3211,32 @@
     if (action === 'down' && bid && recBid === bid) why += ` · 이미 최소 입찰가(${NAVER_MIN_BID}원)라 더 내릴 수 없어요 — 계속 부진하면 끄는 걸 검토하세요`;
     if (group) why += ' · ⚠ 광고그룹 입찰가를 따르는 키워드 — 이 키워드만 바꾸려면 키워드 입찰가를 따로 지정하세요';
     return { ...base, action, label, why, recBid, change };
+  }
+
+  function saProductBidAdvice(channel, base, agg, latest) {
+    const { bid, group, avgRank, clicks } = base;
+    const groupWarn = group ? ' · ⚠ 광고그룹 입찰가를 따르는 키워드 — 이 키워드만 바꾸려면 키워드 입찰가를 따로 지정하세요' : '';
+    if (avgRank == null) {
+      return { ...base, action: 'hold', label: '제품·보류',
+        why: `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 순위 데이터가 없어요(노출이 없었거나 순위를 받기 전)${groupWarn}` };
+    }
+    // 1위를 지키느라 매출보다 광고비가 더 나가면 알 수 있게 — 조치는 바꾸지 않고 경고만 붙인다.
+    let roasWarn = '';
+    if (agg && clicks >= SA_BID_MIN_CLICKS) {
+      const spend = Number(agg.spend), revenue = Number(agg.revenue);
+      const roas = spend > 0 ? revenue / spend * 100 : 0;
+      const min = brandGoal(channel).min;
+      if (roas < min) roasWarn = ` · ⚠ 최근 ${SA_BID_WINDOW_DAYS}일 ROAS ${roas.toFixed(0)}% — 최소 ${min}%에 못 미쳐요. 1위 유지 비용이 매출보다 크면 다시 보세요`;
+    }
+    if (avgRank <= SA_BID_PRODUCT_TOP_RANK) {
+      return { ...base, action: 'keep', label: '제품·유지', recBid: bid, change: 0,
+        why: `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위로 1위를 지키는 중 — 입찰가를 내리면 1위를 잃을 수 있어 그대로 둡니다${roasWarn}${groupWarn}` };
+    }
+    const recBid = bid ? Math.max(NAVER_MIN_BID, Math.floor(bid * (1 + SA_BID_MAX_STEP) / 10) * 10) : null;
+    return { ...base, action: 'up', label: '제품·올림', recBid,
+      change: bid && recBid ? (recBid - bid) / bid : SA_BID_MAX_STEP,
+      why: `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위 — 1위가 아니에요.`
+        + ` 네이버가 1위 가격을 알려주지 않아 한 번에 ${SA_BID_MAX_STEP * 100}%씩 올리고 다음 날 순위를 다시 봅니다${roasWarn}${groupWarn}` };
   }
 
   function saBrandBidAdvice(base, agg, latest) {
@@ -3254,27 +3294,30 @@
     const earliest = allSaKeywordDailyRows.reduce((m, r) => (!m || r.date < m ? r.date : m), '');
     const from = earliest && earliest > w.from ? earliest : w.from;
     const count = { down: 0, up: 0, keep: 0, hold: 0 };
-    let downSpend = 0, brandDown = 0;
+    let downSpend = 0, brandDown = 0, productUp = 0;
     // 브랜드 키워드 매출이 전체 ROAS 를 부풀리므로(광고가 없어도 올 매출), 표 기간 ROAS 를 둘로 나눠 보여준다.
     const split = { brand: { spend: 0, revenue: 0 }, general: { spend: 0, revenue: 0 } };
     for (const r of naverSaKeywordAllRows) {
       if (!r.bid) continue;
       count[r.bid.action]++;
       if (r.bid.action === 'down') { downSpend += Number(r.spend); if (r.bid.brand) brandDown++; }
-      const g = r.bid.brand ? split.brand : split.general;
+      if (r.bid.product && r.bid.action === 'up') productUp++;
+      // 자사 제품 키워드도 이미 사러 온 사람이라 브랜드 쪽에 묶는다.
+      const g = r.bid.brand || r.bid.product ? split.brand : split.general;
       g.spend += Number(r.spend); g.revenue += Number(r.revenue);
     }
     const totalSpend = split.brand.spend + split.general.spend;
     const roasTxt = (g) => (g.spend > 0 ? (g.revenue / g.spend * 100).toFixed(0) + '%' : '-');
     const hasBid = naverSaKeywordAllRows.some((r) => r.bid && r.bid.bid);
     el.innerHTML = (totalSpend > 0
-        ? `표 기간 ROAS — <b>일반 키워드 ${roasTxt(split.general)}</b> · 브랜드 키워드 ${roasTxt(split.brand)}`
+        ? `표 기간 ROAS — <b>일반 키워드 ${roasTxt(split.general)}</b> · 브랜드·자사제품 키워드 ${roasTxt(split.brand)}`
           + ` (광고비의 ${(split.brand.spend / totalSpend * 100).toFixed(0)}%, 광고 없어도 올 매출이 많아 효율은 일반 키워드로 보세요)<br>`
         : '')
       + `권장 입찰가 · ${from} ~ ${w.to} 성과 기준(기간 탭과 무관) · 순위는 최근 ${SA_BID_RANK_DAYS}일`
       + ` · 일반: 목표 ROAS · 클릭 ${SA_BID_MIN_CLICKS}회 미만 보류 · 한 번에 ±${SA_BID_MAX_STEP * 100}%까지`
       + ` · 브랜드: 올리지 않고 실제 클릭비용 × ${SA_BID_BRAND_MARGIN} 까지만`
-      + ` — <b>내림 ${count.down}</b>${brandDown ? `(브랜드 ${brandDown})` : ''} · <b>올림 ${count.up}</b> · 유지 ${count.keep} · 보류 ${count.hold}`
+      + ` · 자사 제품: 1위(평균 ${SA_BID_PRODUCT_TOP_RANK}위 이내) 목표, 아니면 +${SA_BID_MAX_STEP * 100}%`
+      + ` — <b>내림 ${count.down}</b>${brandDown ? `(브랜드 ${brandDown})` : ''} · <b>올림 ${count.up}</b>${productUp ? `(제품 ${productUp})` : ''} · 유지 ${count.keep} · 보류 ${count.hold}`
       + (count.down ? ` · 내림 대상의 표 기간 광고비 ${won(Math.round(downSpend))}` : '')
       + (hasBid ? '' : ' · 현재 입찰가·평균 순위는 다음 동기화부터 들어와요')
       + ' · 「조치」에 마우스를 올리면 계산 근거';
