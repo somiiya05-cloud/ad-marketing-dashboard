@@ -3217,7 +3217,7 @@
     const brand = !product && saIsBrandKeyword(keyword);
     const base = { bid, group, avgRank, clicks, recBid: null, change: 0, brand, product };
     if (product) return saProductBidAdvice(channel, base, agg, latest, keyword);
-    if (brand) return saBrandBidAdvice(base, agg, latest);
+    if (brand) return saBrandBidAdvice(base, agg, latest, keyword);
     if (clicks < SA_BID_MIN_CLICKS) {
       return { ...base, action: 'hold', label: '보류',
         why: `최근 ${SA_BID_WINDOW_DAYS}일 클릭 ${clicks}회 — ${SA_BID_MIN_CLICKS}회는 모여야 판단할 수 있어요` };
@@ -3249,9 +3249,53 @@
     return { ...base, action, label, why, recBid, change };
   }
 
-  // 모바일 1위가 PC 1위보다 이만큼 이상 비싸면(또는 그 반대) 싼 쪽 기기의 1위 가격을 추천한다.
+  // 두 기기의 목표 가격이 이만큼 이상 차이 나면 싼 쪽 기기만 목표에 올리는 값을 추천한다.
   // 2026-09-13 킬파이어가글: 모바일 1위 6,080원 · PC 1위 1,330원 — 둘 다 1위를 추천하면 지금 입찰가의 13배다.
   const SA_BID_PRODUCT_ALT_RATIO = 1.5;
+
+  // ---- 고가 1위(쿠팡 등) 걸러내기 (2026-09-13 요청) ----
+  // 네이버 광고 API 는 1위 광고주가 누구인지 알려주지 않는다. 대신 쿠팡이 들어온 자리는 1위 가격만 2위의
+  // 10배 넘게 튄다(모바일 1위 4,000~7,400원 · 2위 300~500원 — 킬파이어가글·빠이러스·잠비에·칼로리삭스 …).
+  // 그걸 따라가면 판매자로선 무리라, 1위 예상가가 2위의 이 배수 이상이면 그 기기는 1위를 포기하고 2위를 목표로 한다.
+  const SA_BID_TOP_OUTLIER_RATIO = 2.5;
+  // 배수만 보면 싼 자리도 걸린다(명퉤 PC 1위 350원 · 2위 130원 = 2.7배). 따라가려면 이만큼은 더 내야 할 때만 고가로 본다.
+  const SA_BID_TOP_OUTLIER_GAP = 500;
+  // 목표 순위를 이미 지키고 있다고 볼 실제 평균 순위 여유(목표 2위면 2.2위까지). 내리는 추천은 이걸 지킬 때만 낸다.
+  const SA_BID_TARGET_SLACK = 0.2;
+  // 내리는 추천은 실제 순위가 추정과 비슷할 때만 — 실제가 추정보다 이만큼 이상 좋으면(잠비에매트리스: 실제 1.0위인데
+  // 추정 모바일 3위 · PC 2위) 품질지수 덕에 싸게 위에 있는 것이라, 추정 가격으로 내리면 실제 순위를 잃을 수 있다.
+  const SA_BID_ESTIMATE_TRUST = 0.5;
+  // 실제 평균 순위가 기기별 목표(가장 높은 목표 − 0.5 ~ 가장 낮은 목표 + 0.2) 안에 있으면 추정을 믿고 내려도 된다.
+  function saRankMatchesTargets(avgRank, targets) {
+    if (avgRank == null || !targets.length) return false;
+    const top = Math.min(...targets.map((t) => t.rank)), bottom = Math.max(...targets.map((t) => t.rank));
+    return avgRank >= top - SA_BID_ESTIMATE_TRUST && avgRank <= bottom + SA_BID_TARGET_SLACK;
+  }
+
+  function saIsTopOutlier(ladder) {
+    return ladder[0] > 0 && ladder[1] > 0
+      && ladder[0] >= ladder[1] * SA_BID_TOP_OUTLIER_RATIO && ladder[0] - ladder[1] >= SA_BID_TOP_OUTLIER_GAP;
+  }
+  const saDeviceLabel = (d) => (d === 'MOBILE' ? '모바일' : 'PC');
+
+  // 기기마다 목표 순위와 그 순위에 필요한 예상가. minRank(d) 가 기본 목표(제품 1위 / 브랜드는 지금 순위).
+  // 고가 1위가 있는 기기는 목표를 2위보다 위로 잡지 않는다. 가격을 모르면 그 기기는 뺀다.
+  function saDeviceTargets(est, minRank) {
+    return ['MOBILE', 'PC'].map((d) => {
+      const ladder = est[d];
+      const outlier = saIsTopOutlier(ladder);
+      let rank = Math.max(minRank(d, ladder), outlier ? 2 : 1);
+      if (!(rank >= 1 && rank <= 5) || !(ladder[rank - 1] > 0)) return null;
+      return { device: d, rank, price: Math.max(NAVER_MIN_BID, Math.ceil(ladder[rank - 1] / 10) * 10), outlier };
+    }).filter(Boolean);
+  }
+  const saTargetsTxt = (targets) => targets.map((t) => `${saDeviceLabel(t.device)} ${t.rank}위`).join(' · ');
+  const saOutlierTxt = (est, targets) => {
+    const o = targets.filter((t) => t.outlier);
+    return o.length
+      ? ` · ${o.map((t) => `${saDeviceLabel(t.device)} 1위 ${won(est[t.device][0])}`).join(' · ')}은 2위보다 ${SA_BID_TOP_OUTLIER_RATIO}배 넘고 ${won(SA_BID_TOP_OUTLIER_GAP)} 넘게 비싼 고가(쿠팡 등)라 2위를 목표로 해요`
+      : '';
+  };
 
   function saProductBidAdvice(channel, base, agg, latest, keyword) {
     const { bid, group, avgRank, clicks } = base;
@@ -3266,78 +3310,117 @@
       const spend = Number(agg.spend), revenue = Number(agg.revenue);
       const roas = spend > 0 ? revenue / spend * 100 : 0;
       const min = brandGoal(channel).min;
-      if (roas < min) roasWarn = ` · ⚠ 최근 ${SA_BID_WINDOW_DAYS}일 ROAS ${roas.toFixed(0)}% — 최소 ${min}%에 못 미쳐요. 1위 유지 비용이 매출보다 크면 다시 보세요`;
+      if (roas < min) roasWarn = ` · ⚠ 최근 ${SA_BID_WINDOW_DAYS}일 ROAS ${roas.toFixed(0)}% — 최소 ${min}%에 못 미쳐요. 순위 유지 비용이 매출보다 크면 다시 보세요`;
     }
-    if (avgRank <= SA_BID_PRODUCT_TOP_RANK) {
-      return { ...base, action: 'keep', label: '제품·유지', recBid: bid, change: 0,
-        why: `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위로 1위를 지키는 중 — 입찰가를 내리면 1위를 잃을 수 있어 그대로 둡니다${roasWarn}${groupWarn}` };
-    }
-    const notTop = `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위 — 1위가 아니에요.`;
-    // 20% 씩 올려 보는 방식 — 1위 예상가가 없거나 믿을 수 없을 때만 쓴다.
-    const stepUp = (reason) => {
+    const stepUp = (lead, reason) => {
       const recBid = bid ? Math.max(NAVER_MIN_BID, Math.floor(bid * (1 + SA_BID_MAX_STEP) / 10) * 10) : null;
       return { ...base, action: 'up', label: '제품·올림', recBid,
         change: bid && recBid ? (recBid - bid) / bid : SA_BID_MAX_STEP,
-        why: `${notTop} ${reason} 한 번에 ${SA_BID_MAX_STEP * 100}%씩 올리고 다음 날 순위를 다시 봅니다${roasWarn}${groupWarn}` };
+        why: `${lead} ${reason} 한 번에 ${SA_BID_MAX_STEP * 100}%씩 올리고 다음 날 순위를 다시 봅니다${roasWarn}${groupWarn}` };
     };
 
-    // 1위 예상가 기준 (2026-09-13 요청) — 20% 씩 올려서는 1위에 못 닿는 키워드가 많았다
-    // (킬파이어가글 470 → 560원이어도 추정 2위 그대로, 1위는 모바일 6,080원).
     const est = saBidEstimateByKeyword.get(keyword);
-    const mob1 = est && est.MOBILE[0] > 0 ? est.MOBILE[0] : null;
-    const pc1 = est && est.PC[0] > 0 ? est.PC[0] : null;
-    if (!mob1 && !pc1) return stepUp('네이버 1위 예상가가 없는 키워드라(최근 30일 클릭이 없으면 안 받아요)');
-    const both = Math.max(mob1 || 0, pc1 || 0);
-    // 추정상으로는 지금 가격이면 이미 1위인데 실제로는 아닌 경우 — 이 키워드엔 추정이 안 맞으니 믿지 않는다.
-    if (bid && both <= bid) {
-      return stepUp(`추정상으로는 지금 가격(${won(bid)})이면 1위인데(모바일 1위 ${mob1 ? won(mob1) : '-'} · PC 1위 ${pc1 ? won(pc1) : '-'}) 실제로는 아니라, 추정이 안 맞는 키워드예요.`);
+    const targets = est ? saDeviceTargets(est, () => 1) : [];
+    if (!targets.length) {
+      // 예상가가 없으면 예전 규칙 — 1위(평균 1.2위 이내)면 그대로, 아니면 +20%.
+      if (avgRank <= SA_BID_PRODUCT_TOP_RANK) {
+        return { ...base, action: 'keep', label: '제품·유지', recBid: bid, change: 0,
+          why: `자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위로 1위를 지키는 중${roasWarn}${groupWarn}` };
+      }
+      return stepUp(`자사 제품 키워드(목표 1위) · 최근 ${SA_BID_RANK_DAYS}일 평균 ${avgRank.toFixed(1)}위 — 1위가 아니에요.`,
+        '네이버 순위별 예상가가 없는 키워드라(최근 30일 클릭이 없으면 안 받아요)');
     }
-    const bothBid = Math.max(NAVER_MIN_BID, Math.ceil(both / 10) * 10);
-    // 추천은 「한쪽 기기라도 1위가 되는 가장 싼 값」(2026-09-13 요청으로 1위 예상가 칸과 나눔).
-    // 두 기기 1위 가격이 비슷하거나(1.5배 미만), 싼 쪽은 이미 지금 가격으로 1위면 둘 다 1위 가격을 추천한다.
-    let recBid = bothBid, recNote = '둘 다 1위';
-    if (mob1 && pc1 && Math.max(mob1, pc1) >= Math.min(mob1, pc1) * SA_BID_PRODUCT_ALT_RATIO) {
-      const cheap = mob1 < pc1 ? { device: '모바일', price: mob1 } : { device: 'PC', price: pc1 };
-      if (!bid || cheap.price > bid) { recBid = Math.max(NAVER_MIN_BID, Math.ceil(cheap.price / 10) * 10); recNote = `${cheap.device}만 1위`; }
-    } else if (!mob1 || !pc1) {
-      recNote = `${mob1 ? '모바일' : 'PC'} 1위`;
+
+    const goalRank = Math.min(...targets.map((t) => t.rank));      // 실제 평균 순위와 견줄 목표 — 기기마다 다르면 더 높은 목표(모바일 2위 · PC 1위면 1위)
+    const goalTxt = saTargetsTxt(targets);
+    const lead = `자사 제품 키워드 · 목표 ${goalTxt}${saOutlierTxt(est, targets)} · 최근 ${SA_BID_RANK_DAYS}일 실제 평균 ${avgRank.toFixed(1)}위.`;
+    const bothBid = Math.max(...targets.map((t) => t.price));
+    // 두 기기 목표 가격이 크게 다르면 싼 쪽 기기만 목표에 올리는 값을 추천(그 기기가 아직 목표 미달일 때).
+    let recBid = bothBid, recNote = `${goalTxt} 목표`;
+    if (targets.length === 2) {
+      const [cheap, dear] = targets[0].price <= targets[1].price ? targets : [targets[1], targets[0]];
+      if (dear.price >= cheap.price * SA_BID_PRODUCT_ALT_RATIO && (!bid || cheap.price > bid)) {
+        recBid = cheap.price;
+        recNote = `${saDeviceLabel(cheap.device)}만 ${cheap.rank}위`;
+      }
     }
-    return { ...base, action: 'up', label: '제품·올림', recBid, recNote,
-      change: bid ? (recBid - bid) / bid : 0,
-      why: `${notTop} 네이버 1위 예상가 — 모바일 ${mob1 ? won(mob1) : '-'} · PC ${pc1 ? won(pc1) : '-'}.`
-        + ` 추천 ${won(recBid)}(${recNote})`
-        + (recBid !== bothBid ? ` · 둘 다 1위는 ${won(bothBid)}` : '')
-        + `. 시장 추정치라 실제로는 더 싸게 1위가 되기도 해요 — 바꾼 뒤 평균 순위를 확인하세요${roasWarn}${groupWarn}` };
+    const achieved = avgRank <= goalRank + SA_BID_TARGET_SLACK;
+    const math = ` 추천 ${won(recBid)}(${recNote})` + (recBid !== bothBid ? ` · 두 기기 모두 목표면 ${won(bothBid)}` : '')
+      + `. 시장 추정치라 실제와 어긋날 수 있어요 — 바꾼 뒤 평균 순위를 확인하세요${roasWarn}${groupWarn}`;
+
+    if (achieved) {
+      if (bid && recBid < bid && saRankMatchesTargets(avgRank, targets)) {
+        return { ...base, action: 'down', label: '제품·내림', recBid, recNote, change: (recBid - bid) / bid,
+          why: `${lead} 목표 순위를 지키는 중이라, 그 순위를 지키는 더 싼 가격으로 내려도 돼요.${math}` };
+      }
+      return { ...base, action: 'keep', label: '제품·유지', recBid: bid || recBid, recNote: bid ? null : recNote, change: 0,
+        why: `${lead} 목표 순위를 지키는 중 — 그대로 둡니다.${roasWarn}${groupWarn}` };
+    }
+    // 추정상으로는 지금 가격이면 목표 순위인데 실제로는 못 미치는 경우 — 이 키워드엔 추정이 안 맞으니 믿지 않는다.
+    if (bid && recBid <= bid) {
+      return stepUp(lead, `추정상으로는 지금 가격(${won(bid)})이면 목표 순위인데 실제로는 못 미쳐서, 추정이 안 맞는 키워드예요.`);
+    }
+    return { ...base, action: 'up', label: '제품·올림', recBid, recNote, change: bid ? (recBid - bid) / bid : 0,
+      why: `${lead} 목표에 못 미쳐요.${math}` };
   }
 
-  function saBrandBidAdvice(base, agg, latest) {
+  function saBrandBidAdvice(base, agg, latest, keyword) {
     const { bid, group, avgRank, clicks } = base;
     if (clicks < SA_BID_BRAND_MIN_CLICKS) {
       return { ...base, action: 'hold', label: '브랜드·보류',
-        why: `브랜드 키워드 · 최근 ${SA_BID_WINDOW_DAYS}일 클릭 ${clicks}회 — 클릭비용을 재려면 ${SA_BID_BRAND_MIN_CLICKS}회는 있어야 해요` };
+        why: `브랜드 키워드 · 최근 ${SA_BID_WINDOW_DAYS}일 클릭 ${clicks}회 — 판단하려면 ${SA_BID_BRAND_MIN_CLICKS}회는 있어야 해요` };
     }
     const spend = Number(agg.spend), revenue = Number(agg.revenue);
+    const roas = spend > 0 ? revenue / spend * 100 : 0;
+    const groupWarn = group ? ' · ⚠ 광고그룹 입찰가를 따르는 키워드 — 이 키워드만 바꾸려면 키워드 입찰가를 따로 지정하세요' : '';
+    const lead = `브랜드 키워드 — 이미 사러 온 사람이 많아 ROAS(${roas.toFixed(0)}%)로 판단하지 않고 올리지도 않아요`;
+
+    // 순위별 예상가가 있으면 「지금 순위(고가 1위 기기는 2위)를 지키는 최저가」까지만 내린다 (2026-09-13).
+    // 예전 규칙(실제 클릭비용 × 1.3)은 명퉤 370 → 300원처럼 추정상 모바일 1위 → 3위로 떨어지는 값을 권했다.
+    const est = saBidEstimateByKeyword.get(keyword);
+    if (est && bid) {
+      const targets = saDeviceTargets(est, (d, ladder) => {
+        const r = saExpectedRank(ladder, bid);
+        return r == null || r > 5 ? 99 : r;          // 지금 5위 밖이면 그 기기는 목표에서 뺀다
+      });
+      if (targets.length) {
+        const goalTxt = saTargetsTxt(targets);
+        const recBid = Math.min(bid, Math.max(...targets.map((t) => t.price)));
+        const head = `${lead} · 지금 순위 지키기(${goalTxt})${saOutlierTxt(est, targets)} · 최근 ${SA_BID_RANK_DAYS}일 실제 평균 ${avgRank != null ? avgRank.toFixed(1) + '위' : '-'}`;
+        if (recBid < bid) {
+          // 추정 순위와 실제가 크게 다르면 추정을 믿고 내리지 않는다.
+          if (!saRankMatchesTargets(avgRank, targets)) {
+            return { ...base, action: 'keep', label: '브랜드·유지', recBid: bid, change: 0,
+              why: `${head} — 추정상으로는 ${won(recBid)}까지 내려도 되지만 실제 순위가 추정과 달라서(품질지수 영향) 내리지 않아요${groupWarn}` };
+          }
+          return { ...base, action: 'down', label: '브랜드·내림', recBid, recNote: `${goalTxt} 유지`, change: (recBid - bid) / bid,
+            why: `${head} → ${won(recBid)}이면 추정상 같은 순위를 지키면서 입찰가 여유만 걷어냅니다. 시장 추정치라 내린 뒤 며칠은 순위를 확인하세요${groupWarn}` };
+        }
+        return { ...base, action: 'keep', label: '브랜드·유지', recBid: bid, change: 0,
+          why: `${head} — 지금 입찰가가 이미 이 순위를 지키는 최저가 수준이에요${groupWarn}` };
+      }
+    }
+
+    // 예상가가 없으면 예전 규칙: 실제 클릭비용(30일 평균과 최근 3일 중 큰 값) × 1.3.
     const avgCpc = spend / clicks;
     const recentCpc = latest && latest.recentClicks >= 3 ? latest.recentSpend / latest.recentClicks : 0;
     const refCpc = Math.max(avgCpc, recentCpc);
     const target = Math.max(NAVER_MIN_BID, Math.ceil(refCpc * SA_BID_BRAND_MARGIN / 10) * 10);
-    const roas = spend > 0 ? revenue / spend * 100 : 0;
-    let why = `브랜드 키워드 — 이미 사러 온 사람이 많아 ROAS(${roas.toFixed(0)}%)로 판단하지 않고 올리지도 않아요`
-      + ` · 실제 클릭비용 ${SA_BID_WINDOW_DAYS}일 평균 ${won(Math.round(avgCpc))}`
+    let why = `${lead} · 순위별 예상가가 없어 실제 클릭비용으로 봐요 — ${SA_BID_WINDOW_DAYS}일 평균 ${won(Math.round(avgCpc))}`
       + (recentCpc ? ` / 최근 ${SA_BID_BRAND_RECENT_DAYS}일 ${won(Math.round(recentCpc))}` : '')
-      + ` → 큰 값의 ${SA_BID_BRAND_MARGIN}배 ${won(target)}이면 순위를 지키면서 입찰가 여유만 걷어냅니다(당장 광고비가 크게 줄지는 않아요)`;
+      + ` → 큰 값의 ${SA_BID_BRAND_MARGIN}배 ${won(target)}`;
     // 최근 클릭비용이 평균보다 뚜렷이 높고 1위를 못 지키는 중이면, 누군가 이 브랜드명에 입찰하고 있을 수 있다.
     if (recentCpc > avgCpc * 1.15 && avgRank != null && avgRank > 1.2) {
       why += ` · ⚠ 최근 클릭비용이 오르는 중이고 평균 ${avgRank.toFixed(1)}위 — 누군가 이 브랜드명에 입찰하고 있을 수 있어요. 내린 뒤 며칠은 순위를 확인하세요`;
     }
-    if (group) why += ' · ⚠ 광고그룹 입찰가를 따르는 키워드 — 이 키워드만 바꾸려면 키워드 입찰가를 따로 지정하세요';
+    why += groupWarn;
     if (bid && target < bid) {
       return { ...base, action: 'down', label: '브랜드·내림', why, recBid: target, change: (target - bid) / bid };
     }
     if (bid) {
       return { ...base, action: 'keep', label: '브랜드·유지', why: why + ' · 지금 입찰가가 이미 이 수준 이하예요', recBid: bid, change: 0 };
     }
-    // 입찰가를 아직 못 받은 키워드(오늘 노출이 없어 동기화에 안 잡힘)는 권장 금액만 보여준다.
+    // 입찰가를 아직 못 받은 키워드(오늘 노출이 없어 동기화에 안 잡힘)는 추천 금액만 보여준다.
     return { ...base, action: 'keep', label: '브랜드', why, recBid: target, change: 0 };
   }
 
@@ -3379,7 +3462,13 @@
     const rankTxt = b.avgRank != null ? b.avgRank.toFixed(1) + '위' : '-';
 
     const top = est ? [['모바일', est.MOBILE[0]], ['PC', est.PC[0]]].filter(([, v]) => v > 0) : [];
-    const topTxt = top.length ? top.map(([label, v]) => `${label} ${won(v)}`).join('<br>') : '-';
+    // 고가 1위(쿠팡 등 — 2위의 2.5배 이상이고 500원 이상 비쌈)는 표시해 둔다. 그 기기는 추천이 2위를 목표로 한다.
+    const topTxt = top.length
+      ? top.map(([label, v]) => {
+          const ladder = label === '모바일' ? est.MOBILE : est.PC;
+          return `${label} ${won(v)}` + (saIsTopOutlier(ladder) ? '<span class="sa-bid-group" title="2위보다 2.5배 넘고 500원 넘게 비싼 고가 1위(쿠팡 등) — 추천은 2위를 목표로 해요">고가</span>' : '');
+        }).join('<br>')
+      : '-';
 
     let recTxt = '-';
     if (b.action !== 'hold') {
@@ -3425,8 +3514,8 @@
         : '')
       + `추천 입찰가 · ${from} ~ ${w.to} 성과 기준(기간 탭과 무관) · 순위는 최근 ${SA_BID_RANK_DAYS}일`
       + ` · 일반: 목표 ROAS · 클릭 ${SA_BID_MIN_CLICKS}회 미만 보류 · 한 번에 ±${SA_BID_MAX_STEP * 100}%까지`
-      + ` · 브랜드: 올리지 않고 실제 클릭비용 × ${SA_BID_BRAND_MARGIN} 까지만`
-      + ` · 자사 제품: 1위(평균 ${SA_BID_PRODUCT_TOP_RANK}위 이내) 목표 — 추천은 한쪽 기기라도 1위가 되는 가장 싼 값(없거나 안 맞으면 +${SA_BID_MAX_STEP * 100}%)`
+      + ` · 브랜드: 올리지 않고 지금 순위를 지키는 최저가까지만(예상가 없으면 실제 클릭비용 × ${SA_BID_BRAND_MARGIN})`
+      + ` · 자사 제품: 1위 목표, 1위가 2위보다 ${SA_BID_TOP_OUTLIER_RATIO}배·${SA_BID_TOP_OUTLIER_GAP}원 넘게 비싼 고가(쿠팡 등)면 그 기기는 2위 목표 — 목표를 지키는 최저가(없거나 안 맞으면 +${SA_BID_MAX_STEP * 100}%)`
       + ` — <b>내림 ${count.down}</b>${brandDown ? `(브랜드 ${brandDown})` : ''} · <b>올림 ${count.up}</b>${productUp ? `(제품 ${productUp})` : ''} · 유지 ${count.keep} · 보류 ${count.hold}`
       + (count.down ? ` · 내림 대상의 표 기간 광고비 ${won(Math.round(downSpend))}` : '')
       + (hasBid ? '' : ' · 현재 입찰가·평균 순위는 다음 동기화부터 들어와요')
