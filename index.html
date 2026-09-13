@@ -697,7 +697,7 @@
             <div class="scroll-box">
               <table>
                 <thead>
-                  <tr><th></th><th>캠페인</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">현재 입찰가</th><th class="num">평균 순위</th><th class="num">권장 입찰가</th><th>조치</th><th>광고그룹</th><th>판매채널</th></tr>
+                  <tr><th></th><th>캠페인</th><th>키워드</th><th class="num">광고비</th><th class="num">전환매출</th><th class="num">ROAS</th><th class="num">현재 입찰가</th><th class="num">평균 순위</th><th class="num">권장 입찰가</th><th title="네이버 순위별 예상 입찰가로 추정 — 지금 입찰가 → 권장 입찰가">예상 순위</th><th>조치</th><th>광고그룹</th><th>판매채널</th></tr>
                 </thead>
                 <tbody id="mktNaverSaKeywordTable"></tbody>
               </table>
@@ -1440,12 +1440,46 @@
       const [kw, camp] = await Promise.all([
         fetchAllRows('naver_keyword_performance_daily', 'date'),
         fetchAllRows('naver_campaign_performance_daily', 'date'),
+        loadSaBidEstimates(),
       ]);
       allSaKeywordDailyRows = kw;
       allSaCampaignDailyRows = camp;
     } catch (e) {
       allSaKeywordDailyRows = [];
       allSaCampaignDailyRows = [];
+    }
+  }
+
+  // ---- 네이버 순위별 예상 입찰가 (키워드 표 「예상 순위」 칸) ----
+  // naver_keyword_bid_estimate 의 가장 최근 날짜 하루치만 받는다(시장 추정치라 최신만 의미가 있다).
+  // keyword → { MOBILE: [1위 입찰가, 2위, … 5위], PC: [...] }
+  let saBidEstimateByKeyword = new Map();
+  let saBidEstimateDate = '';
+  async function loadSaBidEstimates() {
+    try {
+      const { data: latest, error } = await client.from('naver_keyword_bid_estimate')
+        .select('date').order('date', { ascending: false }).limit(1);
+      if (error || !latest || !latest.length) return;
+      const date = latest[0].date;
+      const rows = [];
+      for (let page = 0; ; page++) {
+        const { data, error: pageError } = await fetchPageWithRetry(() => client.from('naver_keyword_bid_estimate')
+          .select('device,keyword,position,bid').eq('date', date).order('id', { ascending: true })
+          .range(page * 1000, page * 1000 + 999));
+        if (pageError || !data) return;
+        rows.push(...data);
+        if (data.length < 1000) break;
+      }
+      const map = new Map();
+      for (const r of rows) {
+        const e = map.get(r.keyword) || { MOBILE: [], PC: [] };
+        if (e[r.device] && r.position >= 1 && r.position <= 5) e[r.device][r.position - 1] = Number(r.bid);
+        map.set(r.keyword, e);
+      }
+      saBidEstimateByKeyword = map;
+      saBidEstimateDate = date;
+    } catch (e) {
+      // 표가 아직 없거나(SQL 실행 전) 실패해도 나머지 화면은 그대로 떠야 한다.
     }
   }
 
@@ -2991,7 +3025,7 @@
     // 브랜드 열은 뺐다(2026-09-12 요청). 캠페인 이름에 브랜드가 들어 있어(명퉤__PPP,
     // 잠비에_6차_PPP …) 「전체」에서도 대개 구분되고, 안 그런 경우를 위해 캠페인 칸
     // 툴팁에 브랜드를 남긴다.
-    const colSpan = 12;
+    const colSpan = 13;
 
     document.getElementById('mktNaverSaKeywordTable').innerHTML = shown.length
       ? shown.map((r, idx) => {
@@ -3004,7 +3038,7 @@
               <td class="num">${won(Math.round(r.spend))}</td>
               <td class="num">${won(Math.round(r.revenue))}</td>
               ${saRoasCell(r.roas, r.channel, r.spend)}
-              ${saBidCells(r.bid)}
+              ${saBidCells(r.bid, r.keyword)}
               <td class="sa-truncate" title="${escapeAttr(r.adgroup)}">${escapeAttr(r.adgroup)}</td>
               <td>${saSalesChannelBadge(r)}</td>
             </tr>
@@ -3270,8 +3304,38 @@
     return { ...base, action: 'keep', label: '브랜드', why, recBid: target, change: 0 };
   }
 
-  function saBidCells(b) {
-    if (!b) return '<td class="num">-</td><td class="num">-</td><td class="num">-</td><td>-</td>';
+  // 이 입찰가면 몇 위쯤인지. ladder[i] = (i+1)위에 필요한 예상 입찰가. 6 = 5위 밖, null = 추정치 없음.
+  function saExpectedRank(ladder, bid) {
+    if (!ladder || !ladder.some((v) => v > 0) || !(bid > 0)) return null;
+    for (let i = 0; i < 5; i++) if (ladder[i] > 0 && bid >= ladder[i]) return i + 1;
+    return 6;
+  }
+  const saRankTxt = (n) => (n == null ? '-' : n > 5 ? '5위 밖' : n + '위');
+
+  function saExpectedRankCell(b, keyword) {
+    const est = saBidEstimateByKeyword.get(keyword);
+    if (!b || !est || !b.bid) return '<td>-</td>';
+    const target = b.recBid && b.recBid !== b.bid ? b.recBid : null;
+    const part = (label, ladder) => {
+      const now = saExpectedRank(ladder, b.bid);
+      if (now == null) return '';
+      if (!target) return `${label} ${saRankTxt(now)}`;
+      const next = saExpectedRank(ladder, target);
+      return `${label} ${saRankTxt(now)}→<b>${saRankTxt(next)}</b>`;
+    };
+    const txt = [part('모바일', est.MOBILE), part('PC', est.PC)].filter(Boolean).join(' · ');
+    if (!txt) return '<td>-</td>';
+    const ladderTxt = (label, ladder) => ladder.some((v) => v > 0)
+      ? `${label} ` + ladder.map((v, i) => (v > 0 ? `${i + 1}위 ${won(v)}` : '')).filter(Boolean).join(' · ')
+      : '';
+    const title = [ladderTxt('모바일', est.MOBILE), ladderTxt('PC', est.PC)].filter(Boolean).join(' / ')
+      + ` — 네이버 시장 추정치(${saBidEstimateDate}). 실제 순위는 품질지수에 따라 달라요`
+      + (b.avgRank != null ? ` · 지금 실제 평균 ${b.avgRank.toFixed(1)}위` : '');
+    return `<td title="${escapeAttr(title)}">${txt}</td>`;
+  }
+
+  function saBidCells(b, keyword) {
+    if (!b) return '<td class="num">-</td><td class="num">-</td><td class="num">-</td><td>-</td><td>-</td>';
     const bidTxt = b.bid ? won(b.bid) + (b.group ? '<span class="sa-bid-group" title="광고그룹 입찰가를 따르는 키워드">그룹</span>' : '') : '-';
     const rankTxt = b.avgRank != null ? b.avgRank.toFixed(1) + '위' : '-';
     let recTxt = '-';
@@ -3283,6 +3347,7 @@
       recTxt = b.recBid ? won(b.recBid) + delta : (delta || '그대로');
     }
     return `<td class="num">${bidTxt}</td><td class="num">${rankTxt}</td><td class="num">${recTxt}</td>`
+      + saExpectedRankCell(b, keyword)
       + `<td><span class="sa-bid-tag ${b.action}" title="${escapeAttr(b.why)}">${b.label}</span></td>`;
   }
 
@@ -3320,6 +3385,9 @@
       + ` — <b>내림 ${count.down}</b>${brandDown ? `(브랜드 ${brandDown})` : ''} · <b>올림 ${count.up}</b>${productUp ? `(제품 ${productUp})` : ''} · 유지 ${count.keep} · 보류 ${count.hold}`
       + (count.down ? ` · 내림 대상의 표 기간 광고비 ${won(Math.round(downSpend))}` : '')
       + (hasBid ? '' : ' · 현재 입찰가·평균 순위는 다음 동기화부터 들어와요')
+      + (saBidEstimateDate
+        ? ` · 예상 순위는 네이버 시장 추정치(${saBidEstimateDate}, 최근 30일 클릭 있는 키워드만) — 품질지수에 따라 실제와 1~3위씩 어긋나기도 해요. 칸에 마우스를 올리면 실제 평균 순위와 같이 보여요`
+        : ' · 예상 순위는 네이버 추정치를 받은 뒤부터 보여요')
       + ' · 「조치」에 마우스를 올리면 계산 근거';
   }
 
