@@ -389,6 +389,8 @@
   tr.sa-act-group .sa-act-count { font-weight: 600; color: #64748b; margin-left: 6px; }
   tr.sa-act-group .sa-act-hint { font-weight: 500; color: #94a3b8; margin-left: 8px; }
   tr.sa-row-rest > td { opacity: .5; }
+  #mktNaverSaKwTabs .sa-bid-download-btn { margin-left: auto; }
+  .sa-bid-download-btn:disabled { opacity: .45; cursor: default; }
   tr.sa-row-rest:hover > td { opacity: .85; }
   .sa-bid-delta { font-size: 11px; margin-left: 4px; }
   .sa-bid-delta.down { color: #dc2626; }
@@ -752,6 +754,8 @@
               <button type="button" class="ad-type-filter-btn" data-kwtab="good" onclick="setNaverSaKwStatus('good')">성과 우수</button>
               <button type="button" class="ad-type-filter-btn" data-kwtab="caution" onclick="setNaverSaKwStatus('caution')">주의</button>
               <button type="button" class="ad-type-filter-btn" data-kwtab="waste" onclick="setNaverSaKwStatus('waste')">낭비 키워드</button>
+              <!-- 조치할 것만 엑셀로 — 캠페인 · 키워드 · 현재입찰가 · 수정입찰가 (2026-09-13 요청) -->
+              <button type="button" class="btn-primary sa-bid-download-btn" id="saBidDownloadBtn" onclick="downloadSaBidChanges()">조치할 것 엑셀 다운로드</button>
             </div>
             <div class="scroll-box">
               <table>
@@ -3252,6 +3256,12 @@
     const actRows = rows.filter((r) => saBidIsActionable(r.bid));
     const restRows = rows.filter((r) => !saBidIsActionable(r.bid));
     rows = actRows.concat(restRows);
+    saKeywordActRows = actRows;
+    const dlBtn = document.getElementById('saBidDownloadBtn');
+    if (dlBtn) {
+      dlBtn.textContent = `조치할 것 엑셀 다운로드 (${actRows.length}개)`;
+      dlBtn.disabled = !actRows.length;
+    }
 
     const totalCount = rows.length;
     // 전체 화면일 땐 늘 전부 — 동기화 뒤 화면을 다시 그려도(saKeywordShowAll 이 초기화돼도) 10줄로 줄지 않게.
@@ -3694,6 +3704,23 @@
   }
 
   // 현재 입찰가 | 평균 순위(실제) | 1위 예상가 | 추천 입찰가(+ 그 가격의 예상 순위) | 조치
+  // 키워드 표에서 지금 「조치할 것」 묶음에 든 줄 — 표를 그릴 때마다 채운다(기간·브랜드·광고 유형·상태 탭이 그대로 걸린 결과).
+  let saKeywordActRows = [];
+  // 조치할 것만 엑셀로 내려받는다. 칸은 요청대로 네 개만: 캠페인 · 키워드 · 현재입찰가 · 수정입찰가.
+  function downloadSaBidChanges() {
+    const rows = saKeywordActRows;
+    if (!rows.length) { alert('지금 조건에서는 조치할 키워드가 없어요.'); return; }
+    if (!window.XLSX) { alert('엑셀 기능을 불러오지 못했어요. 새로고침한 뒤 다시 눌러 주세요.'); return; }
+    const aoa = [['캠페인', '키워드', '현재입찰가', '수정입찰가']]
+      .concat(rows.map((r) => [r.campaign, r.keyword, r.bid.bid, r.bid.recBid]));
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 30 }, { wch: 26 }, { wch: 12 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '입찰가 조정');
+    const brand = saFilter.brand ? naverSaBrandName(saFilter.brand) : '전체';
+    XLSX.writeFile(wb, `네이버SA_입찰가조정_${brand}_${todayISO()}.xlsx`);
+  }
+
   // 입찰가를 바꾸라는 줄(올림·내림 — 제품·브랜드 포함)인지. 유지·보류·입찰가 없음은 「그대로 둘 것」.
   function saBidIsActionable(b) {
     return !!(b && (b.action === 'up' || b.action === 'down') && b.recBid && b.bid && b.recBid !== b.bid);
