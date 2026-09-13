@@ -2665,19 +2665,12 @@
       const cur = map.get(r.keyword_id) || {
         channel: r.channel, campaign: r.campaign, adgroup: r.adgroup, keyword: r.keyword, keyword_id: r.keyword_id,
         landing_url: null, sales_channel: null, spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0,
-        rankWeighted: 0, rankImpressions: 0,
       };
       cur.spend += Number(r.spend); cur.impressions += Number(r.impressions); cur.clicks += Number(r.clicks);
       cur.conversions += Number(r.conversions); cur.revenue += Number(r.revenue);
       // 랜딩 URL/판매채널은 날짜별로 바뀔 수 있어 가장 최근 날짜 값을 쓴다(위에서 date 오름차순 정렬해서 로드했으므로 마지막에 덮어쓴 값 = 최신).
       cur.landing_url = r.landing_url || cur.landing_url;
       cur.sales_channel = r.sales_channel || cur.sales_channel;
-      // 평균 순위는 날짜마다 노출수가 달라서 그냥 평균 내면 노출 몇 번 안 된 날이 과대평가된다 — 노출 가중.
-      // (avg_rank 는 2026-09-13 동기화부터 들어온다. 그 전 행에는 없다.)
-      if (r.avg_rank != null && Number(r.impressions) > 0) {
-        cur.rankWeighted += Number(r.avg_rank) * Number(r.impressions);
-        cur.rankImpressions += Number(r.impressions);
-      }
       map.set(r.keyword_id, cur);
     }
     return Array.from(map.values());
@@ -2723,9 +2716,19 @@
     const bidAggById = new Map(aggregateSaKeywordDaily(allSaKeywordDailyRows.filter((r) =>
       r.date >= bidWindow.from && r.date <= bidWindow.to && typeOk(r))).map((a) => [a.keyword_id, a]));
     // 지금 입찰가는 기간과 무관하게 그 키워드의 가장 최근 값(날짜 오름차순으로 로드했으므로 마지막 값).
+    // 평균 순위도 "지금 몇 위냐"가 중요해서 성과 창(어제까지)이 아니라 최근 7일(오늘 포함)로 본다 —
+    // 성과 창을 따르면 순위를 받기 시작한 첫날(2026-09-13)엔 순위가 하나도 안 잡혀서, 이미 1위인
+    // 키워드에 「올림」을 권하게 된다.
+    const rankFrom = addDays(todayISO(), -(SA_BID_RANK_DAYS - 1));
     const latestBidById = new Map();
     for (const r of allSaKeywordDailyRows) {
-      if (r.bid_amt != null) latestBidById.set(r.keyword_id, { bid: Number(r.bid_amt), group: !!r.use_group_bid });
+      const cur = latestBidById.get(r.keyword_id) || { bid: null, group: false, rankWeighted: 0, rankImpressions: 0 };
+      if (r.bid_amt != null) { cur.bid = Number(r.bid_amt); cur.group = !!r.use_group_bid; }
+      if (r.date >= rankFrom && r.avg_rank != null && Number(r.impressions) > 0) {
+        cur.rankWeighted += Number(r.avg_rank) * Number(r.impressions);
+        cur.rankImpressions += Number(r.impressions);
+      }
+      latestBidById.set(r.keyword_id, cur);
     }
 
     naverSaKeywordAllRows = kwRowsRaw.map((r) => {
@@ -3120,6 +3123,7 @@
   const SA_BID_MIN_CLICKS = 20;
   const SA_BID_MAX_STEP = 0.2;
   const SA_BID_TOP_RANK = 1.5;
+  const SA_BID_RANK_DAYS = 7;   // 평균 순위를 볼 최근 일수(오늘 포함)
   const NAVER_MIN_BID = 70;
 
   function saBidWindow() {
@@ -3127,12 +3131,13 @@
     return { from: addDays(to, -(SA_BID_WINDOW_DAYS - 1)), to };
   }
 
-  // agg: 창 안에서 합친 그 키워드 성과(없을 수 있음) · latest: { bid, group } 지금 입찰가(없을 수 있음)
+  // agg: 성과 창 안에서 합친 그 키워드 성과(없을 수 있음)
+  // latest: { bid, group, rankWeighted, rankImpressions } 지금 입찰가와 최근 7일 순위(없을 수 있음)
   function saBidAdvice(channel, agg, latest) {
     const bid = latest ? latest.bid : null;
     const group = latest ? latest.group : false;
     const clicks = agg ? Number(agg.clicks) : 0;
-    const avgRank = agg && agg.rankImpressions > 0 ? agg.rankWeighted / agg.rankImpressions : null;
+    const avgRank = latest && latest.rankImpressions > 0 ? latest.rankWeighted / latest.rankImpressions : null;
     const base = { bid, group, avgRank, clicks, recBid: null, change: 0 };
     if (clicks < SA_BID_MIN_CLICKS) {
       return { ...base, action: 'hold', label: '보류',
@@ -3196,7 +3201,7 @@
       if (r.bid.action === 'down') downSpend += Number(r.spend);
     }
     const hasBid = naverSaKeywordAllRows.some((r) => r.bid && r.bid.bid);
-    el.innerHTML = `권장 입찰가 · ${from} ~ ${w.to} 성과 기준(기간 탭과 무관) · 목표 ROAS · 클릭 ${SA_BID_MIN_CLICKS}회 미만은 보류 · 한 번에 ±${SA_BID_MAX_STEP * 100}%까지`
+    el.innerHTML = `권장 입찰가 · ${from} ~ ${w.to} 성과 기준(기간 탭과 무관) · 순위는 최근 ${SA_BID_RANK_DAYS}일 · 목표 ROAS · 클릭 ${SA_BID_MIN_CLICKS}회 미만은 보류 · 한 번에 ±${SA_BID_MAX_STEP * 100}%까지`
       + ` — <b>내림 ${count.down}</b> · <b>올림 ${count.up}</b> · 유지 ${count.keep} · 보류 ${count.hold}`
       + (count.down ? ` · 내림 대상의 표 기간 광고비 ${won(Math.round(downSpend))}` : '')
       + (hasBid ? '' : ' · 현재 입찰가·평균 순위는 다음 동기화부터 들어와요')
