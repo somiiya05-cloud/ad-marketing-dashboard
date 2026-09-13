@@ -249,6 +249,18 @@
   .sa-kpi-panel .panel-head { margin-bottom: 10px; align-items: flex-start; }
   .sa-kpi-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
   .sa-kpi-type-tabs .ad-type-filter-btn { font-size: 12px; padding: 4px 10px; }
+  /* 핵심 지표 아래 최근 7일 일별 — 고정바 안이라 두꺼워지지 않게 날짜를 가로로 늘어놓는다(행 4줄). */
+  .sa-kpi-daily { margin-top: 10px; }
+  .sa-kpi-daily-toggle { font-size: 12px; padding: 3px 10px; }
+  .sa-kpi-daily-box { overflow-x: auto; margin-top: 6px; }
+  .sa-kpi-daily-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sa-kpi-daily-table th, .sa-kpi-daily-table td { padding: 4px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid rgba(15,23,42,.06); color: #334155; }
+  .sa-kpi-daily-table th:first-child, .sa-kpi-daily-table td:first-child { text-align: left; color: #64748b; font-weight: 600; }
+  .sa-kpi-daily-table thead th { color: #94a3b8; font-weight: 600; }
+  .sa-kpi-daily-table .is-sel { background: rgba(15,23,42,.04); font-weight: 700; }
+  .sa-kpi-daily-table .is-weekend { color: #b45309; }
+  /* 표 공통 규칙(칸 여백 10px·머리글 고정)이 더 세게 걸려 표가 184px 로 두꺼워졌다 — 이 표만 좁힌다. */
+  #saKpiDaily .sa-kpi-daily-table th, #saKpiDaily .sa-kpi-daily-table td { padding: 3px 8px; line-height: 1.35; position: static; }
   /* 브랜드가 늘어나면 좁은 화면에서 고정바가 너무 두꺼워진다 — 줄바꿈 대신 가로로 민다. */
   @media (max-width: 900px) {
     .sa-brand-tab-row { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
@@ -648,6 +660,7 @@
             </div>
           </div>
           <div class="kpi-row kpi-row-compact" id="saBrandDetailCards"></div>
+          <div class="sa-kpi-daily" id="saKpiDaily"></div>
           <div class="sa-filter-note" id="saKpiTypeNote" style="display:none;"></div>
         </section>
         <div class="sa-sync-banner" id="saSyncBanner" style="display:none;"></div>
@@ -2630,6 +2643,8 @@
     const btn = document.getElementById('saKpiToggle');
     if (!cards || !btn) return;
     cards.style.display = saKpiShown ? '' : 'none';
+    const daily = document.getElementById('saKpiDaily');
+    if (daily) daily.style.display = saKpiShown ? '' : 'none';
     btn.textContent = saKpiShown ? '접기 ▴' : '펴기 ▾';
     updateSaFilterBarHeight();
   }
@@ -2708,6 +2723,58 @@
         roas >= goal.target ? 'kpi-value-good' : (roas < goal.min ? 'kpi-value-bad' : '')),
       saKpiCard('광고비 비중', spendShare.toFixed(1) + '%', deltaLine(spendShare, cmpSpendShare, { unit: 'pp' })),
     ].join('');
+    renderSaKpiDaily(channels, allChannels, to, pick, goal, useType);
+  }
+
+  // ---- 핵심 지표 아래 최근 7일 일별 (2026-09-13 요청) ----
+  // 위 카드와 같은 기준(브랜드 · 광고 유형)으로, 고른 기간의 마지막 날까지 7일을 하루씩 보여준다.
+  // 접었는지는 브라우저에 기억한다. 핵심 지표 자체를 「접기」하면 이것도 같이 숨는다.
+  let saKpiDailyShown = (() => {
+    try { return localStorage.getItem('saKpiDailyShown') !== '0'; } catch (e) { return true; }
+  })();
+  function toggleSaKpiDaily() {
+    saKpiDailyShown = !saKpiDailyShown;
+    try { localStorage.setItem('saKpiDailyShown', saKpiDailyShown ? '1' : '0'); } catch (e) {}
+    const box = document.getElementById('saKpiDailyBox');
+    const btn = document.getElementById('saKpiDailyToggle');
+    if (box) box.style.display = saKpiDailyShown ? '' : 'none';
+    if (btn) btn.textContent = saKpiDailyShown ? '최근 7일 일별 ▴' : '최근 7일 일별 ▾';
+    updateSaFilterBarHeight();
+  }
+  function renderSaKpiDaily(channels, allChannels, to, pick, goal, useType) {
+    const el = document.getElementById('saKpiDaily');
+    if (!el) return;
+    const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+    const days = Array.from({ length: 7 }, (_, i) => addDays(to, i - 6)).map((d) => {
+      const dow = new Date(d + 'T00:00:00Z').getUTCDay();
+      // SA/파워링크로 나눠 볼 때 캠페인 일별 데이터가 없는 날은 0 이 아니라 모르는 것이다.
+      const known = !useType || allSaCampaignDailyRows.some((r) => r.date === d);
+      const cur = sumRows(pick(channels, d, d));
+      const all = sumRows(pick(allChannels, d, d));
+      return {
+        d, known, weekend: dow === 0 || dow === 6,
+        label: `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}(${WEEK[dow]})`,
+        spend: cur.spend, revenue: cur.revenue, roas: roasOf(cur),
+        share: all.spend > 0 ? cur.spend / all.spend * 100 : 0,
+      };
+    });
+    const cell = (day, html, cls = '') => `<td class="${day.d === to ? 'is-sel ' : ''}${cls}">${day.known ? html : '-'}</td>`;
+    const roasCls = (day) => (!(day.spend > 0) ? '' : day.roas >= goal.target ? 'roas-good' : day.roas < goal.min ? 'roas-bad' : 'roas-warn');
+    const rows = [
+      ['광고비', (x) => cell(x, won(Math.round(x.spend)))],
+      ['전환매출', (x) => cell(x, won(Math.round(x.revenue)))],
+      ['ROAS', (x) => cell(x, x.spend > 0 ? x.roas.toFixed(0) + '%' : '-', roasCls(x))],
+      ['광고비 비중', (x) => cell(x, x.share.toFixed(1) + '%')],
+    ];
+    el.innerHTML = `
+      <button type="button" class="filter-reset-btn sa-kpi-daily-toggle" id="saKpiDailyToggle" onclick="toggleSaKpiDaily()">${saKpiDailyShown ? '최근 7일 일별 ▴' : '최근 7일 일별 ▾'}</button>
+      <div class="sa-kpi-daily-box" id="saKpiDailyBox" style="${saKpiDailyShown ? '' : 'display:none;'}">
+        <table class="sa-kpi-daily-table">
+          <thead><tr><th></th>${days.map((x) => `<th class="${x.d === to ? 'is-sel ' : ''}${x.weekend ? 'is-weekend' : ''}">${x.label}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(([name, f]) => `<tr><td>${name}</td>${days.map(f).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+    updateSaFilterBarHeight();
   }
 
   // ==================== 오늘의 광고 진단 (규칙 기반 자동 진단, 처리상태는 브라우저 localStorage에 저장) ====================
